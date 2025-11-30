@@ -11,7 +11,7 @@
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ed.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-[Live Demo](http://13.62.63.125) • [API Docs](http://13.62.63.125/api/docs/) • [Report Bug](#troubleshooting)
+[Live App](http://www.kgen21.com/)
 
 </div>
 
