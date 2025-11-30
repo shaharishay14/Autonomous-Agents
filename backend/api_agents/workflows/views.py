@@ -12,7 +12,7 @@ from drf_spectacular.types import OpenApiTypes
 
 from ..workflows.models import Trigger, TriggerExecution, Workflow, WorkflowExecution
 from ..agents.models import Agent, ChatMessage
-from ..agent_service import AgentService
+from ..agents.services.agent_service import AgentService
 from . import serializers
 from .serializers import (
     TriggerSerializer, TriggerExecutionSerializer,

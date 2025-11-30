@@ -16,7 +16,7 @@ from ..messaging.serializers import (
     ConnectTelegramBotSerializer,
     DisconnectMessagingChannelSerializer
 )
-from ..agent_service import AgentService
+from ..agents.services.agent_service import AgentService
 from .. import serializers
 
 
@@ -32,7 +32,7 @@ from .. import serializers
 @permission_classes([IsAuthenticated])
 def connect_telegram_bot(request, agent_id):
     """Connect a Telegram bot to an agent"""
-    from ..telegram_utils import verify_bot_token, set_webhook, TelegramAPIError
+    from ..messaging.telegram_utils import verify_bot_token, set_webhook, TelegramAPIError
 
     try:
         # Get the agent
@@ -132,7 +132,7 @@ def connect_telegram_bot(request, agent_id):
 @permission_classes([IsAuthenticated])
 def disconnect_messaging_channel(request, agent_id):
     """Disconnect a messaging channel from an agent"""
-    from ..telegram_utils import delete_webhook
+    from ..messaging.telegram_utils import delete_webhook
 
     try:
         agent = Agent.objects.get(id=agent_id, user=request.user)
@@ -210,7 +210,7 @@ def telegram_webhook(request, agent_id):
     Webhook endpoint for receiving Telegram messages.
     Called by Telegram when users send messages to the bot.
     """
-    from ..telegram_utils import send_message, send_typing_action, TelegramAPIError
+    from ..messaging.telegram_utils import send_message, send_typing_action, TelegramAPIError
     from ..credits import deduct_credits_for_message
 
     try:

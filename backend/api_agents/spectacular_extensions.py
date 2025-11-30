@@ -3,7 +3,7 @@ Extensions for drf-spectacular to properly document custom authentication.
 """
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from drf_spectacular.plumbing import build_bearer_security_scheme_object
-from api_agents.auth import CookieJWTAuthentication
+from api_agents.authentication.auth import CookieJWTAuthentication
 
 
 class CookieJWTAuthenticationScheme(OpenApiAuthenticationExtension):

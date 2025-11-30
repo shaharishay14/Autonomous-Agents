@@ -9,9 +9,9 @@ import traceback
 
 from ..tools.models import ComposioConnection
 from ..agents.models import Agent, ChatMessage
-from ..agent_service import AgentService
-from ..composio_config import APP_SLUGS, APP_METADATA, TOP_SLUGS_BY_APP
-from ..agent_tools_config import AGENT_TOOLS, get_all_tool_names, is_valid_tool
+from ..agents.services.agent_service import AgentService
+from .composio_config import APP_SLUGS, APP_METADATA, TOP_SLUGS_BY_APP
+from ..agents.tools_config import AGENT_TOOLS, get_all_tool_names, is_valid_tool
 from ..tools.serializers import ComposioConnectionSerializer
 from ..serializers import (
     ConnectionCreateRequestSerializer, ConnectionAuthResponseSerializer,

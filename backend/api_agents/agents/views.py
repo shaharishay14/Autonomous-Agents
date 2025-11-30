@@ -32,9 +32,9 @@ from ..serializers import (
     MessagingChannelSerializer, ConnectTelegramBotSerializer, DisconnectMessagingChannelSerializer,
     AppConnectionDisplaySerializer, ManualAgentCreateSerializer, ManualAgentCreateResponseSerializer
 )
-from ..agent_service import AgentService
-from ..composio_config import APP_SLUGS, APP_METADATA, TOP_SLUGS_BY_APP
-from ..agent_tools_config import AGENT_TOOLS, get_all_tool_names, is_valid_tool
+from .services.agent_service import AgentService
+from ..tools.composio_config import APP_SLUGS, APP_METADATA, TOP_SLUGS_BY_APP
+from ..agents.tools_config import AGENT_TOOLS, get_all_tool_names, is_valid_tool
 import traceback
 import asyncio
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResponse, OpenApiParameter, OpenApiExample
@@ -59,7 +59,7 @@ from io import BytesIO
 import base64
 from PIL import Image
 from django.http import StreamingHttpResponse
-from ..streaming_utils import (
+from ..shared.streaming_utils import (
     format_sse_event, send_status_event, send_tool_call_start_event,
     send_tool_call_result_event, send_content_delta_event,
     send_message_complete_event, send_done_event, send_error_event
