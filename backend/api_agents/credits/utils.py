@@ -6,7 +6,7 @@ Provides decorators and helper functions for managing user credits.
 from functools import wraps
 from rest_framework.response import Response
 from rest_framework import status
-from .models import UsageLog
+from ..credits.models import UsageLog
 
 
 # Credit costs for different actions
