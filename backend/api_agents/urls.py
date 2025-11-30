@@ -1,24 +1,29 @@
+"""
+Main API URL Configuration - Routes to domain-specific URL modules
+"""
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from . import views
 
-router = DefaultRouter()
-router.register(r'agent-templates', views.AgentTemplateViewSet, basename='agent-template')
-router.register(r'agents', views.AgentViewSet, basename='agent')
-router.register(r'connections', views.ComposioConnectionViewSet, basename='connection')
-router.register(r'files', views.FileAttachmentViewSet, basename='file')
-router.register(r'triggers', views.TriggerViewSet, basename='trigger')
-router.register(r'workflows', views.WorkflowViewSet, basename='workflow')
 
 urlpatterns = [
-    # Auth endpoints are defined in config/urls.py to avoid duplicates
-    # Router URLs
-    path('', include(router.urls)),
+    # Authentication endpoints
+    path('auth/', include('api_agents.authentication.urls')),
 
-    # Telegram Bot Integration
-    path('agents/<uuid:agent_id>/telegram/connect/', views.connect_telegram_bot, name='telegram_connect'),
-    path('agents/<uuid:agent_id>/messaging/disconnect/', views.disconnect_messaging_channel, name='messaging_disconnect'),
-    path('agents/<uuid:agent_id>/messaging/channels/', views.get_messaging_channels, name='messaging_channels'),
-    path('telegram/webhook/<uuid:agent_id>/', views.telegram_webhook, name='telegram_webhook'),
+    # Agent management
+    path('agents/', include('api_agents.agents.urls')),
+
+    # Workflow management
+    path('workflows/', include('api_agents.workflows.urls')),
+
+    # File attachments
+    path('files/', include('api_agents.files.urls')),
+
+    # Credit management
+    path('credits/', include('api_agents.credits.urls')),
+
+    # Tool/Connection management
+    path('connections/', include('api_agents.tools.urls')),
+
+    # Messaging and bot integrations
+    path('messaging/', include('api_agents.messaging.urls')),
 ]
 
