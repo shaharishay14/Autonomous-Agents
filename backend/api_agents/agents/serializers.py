@@ -1,0 +1,269 @@
+from rest_framework import serializers
+from ..agents import models as agent_models
+import json
+
+
+class FlexibleListField(serializers.ListField):
+    """
+    Custom ListField that handles both JSON string and array formats.
+    Needed for multipart/form-data where arrays are sent as JSON strings.
+    Frontend sends: ['["GMAIL"]'] (list with JSON string) via multipart data.
+    """
+    def to_internal_value(self, data):
+        # If data is a string, try to parse it as JSON
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except (json.JSONDecodeError, ValueError):
+                # If it's not valid JSON, treat it as a single-item list
+                data = [data]
+
+        # If data is a list, check if first item is a JSON string
+        elif isinstance(data, list) and len(data) > 0 and isinstance(data[0], str):
+            try:
+                # Try to parse the first item as JSON (common in multipart/form-data)
+                parsed = json.loads(data[0])
+                if isinstance(parsed, list):
+                    data = parsed
+            except (json.JSONDecodeError, ValueError):
+                # Not JSON, leave as is
+                pass
+
+        # Now proceed with normal ListField validation
+        return super().to_internal_value(data)
+
+
+class AgentTemplateSerializer(serializers.ModelSerializer):
+    """Serializer for agent templates"""
+    category_display_name = serializers.ReadOnlyField(help_text="Human-readable category name")
+    category_icon = serializers.ReadOnlyField(help_text="Emoji icon for the category")
+
+    class Meta:
+        model = agent_models.AgentTemplate
+        fields = [
+            'id', 'name', 'description', 'system_prompt',
+            'category', 'category_display_name', 'category_icon',
+            'default_tools', 'default_agent_tools', 'icon',
+            'usage_count', 'created_at'
+        ]
+        read_only_fields = ['id', 'usage_count', 'created_at', 'category_display_name', 'category_icon']
+
+
+class InstantiateTemplateRequestSerializer(serializers.Serializer):
+    """Request serializer for instantiating a template"""
+    template_id = serializers.UUIDField(
+        required=True,
+        help_text="UUID of the agent template to instantiate"
+    )
+
+
+class AgentSerializer(serializers.ModelSerializer):
+    user = serializers.ReadOnlyField(source='user.username')
+    message_count = serializers.SerializerMethodField()
+    avatar = serializers.ImageField(write_only=True, required=False, help_text="Avatar image file (JPG or PNG, max 5MB)")
+    avatar_base64 = serializers.SerializerMethodField(help_text="Base64-encoded avatar image for display (read-only)")
+
+    # Make 'tools' read-only, as it's set by the backend
+    tools = serializers.JSONField(read_only=True)
+
+    # 'app_connections' handles both JSON string (multipart/form-data) and array (application/json)
+    # Use FlexibleListField to parse JSON strings from multipart data
+    app_connections = FlexibleListField(
+        child=serializers.CharField(max_length=100),
+        required=False,
+        default=list,
+        allow_empty=True,
+        help_text="List of tool names to enable for this agent (e.g., ['GMAIL', 'SLACK']). Can be sent as JSON string in multipart data."
+    )
+
+    # Make 'name' optional - will be generated from prompt if not provided
+    name = serializers.CharField(required=False, allow_blank=True, max_length=200)
+
+    # Agent-specific tools (non-Composio) - read-only for now
+    agent_tools = serializers.JSONField(read_only=True)
+
+    class Meta:
+        model = agent_models.Agent
+        fields = [
+            'id', 'user', 'name', 'prompt',
+            'tools', 'app_connections', 'agent_tools',
+            'created_at', 'updated_at', 'message_count', 'avatar', 'avatar_base64'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def get_message_count(self, obj) -> int:
+        return obj.messages.count()
+
+    def get_avatar_base64(self, obj) -> str | None:
+        """Returns the avatar image as a base64-encoded data URI, or None if no avatar exists"""
+        if obj.avatar_image:
+            import base64
+            try:
+                # Get the image data
+                image_data = obj.get_avatar_content()
+                if image_data:
+                    # Encode to base64
+                    base64_data = base64.b64encode(image_data).decode('utf-8')
+                    # Return as data URI
+                    mime_type = obj.avatar_mime_type or 'image/jpeg'
+                    return f"data:{mime_type};base64,{base64_data}"
+            except Exception as e:
+                # Log error but don't fail the entire serialization
+                print(f"Error encoding avatar to base64: {e}")
+        return None
+
+    def validate_avatar(self, value):
+        """Validate avatar file size and type"""
+        if value:
+            # Validate file size (5MB max)
+            max_size = 5 * 1024 * 1024  # 5MB
+            if value.size > max_size:
+                raise serializers.ValidationError(
+                    f'File size exceeds maximum allowed size of 5MB. Your file is {value.size / (1024 * 1024):.2f}MB.'
+                )
+
+            # Validate file type
+            if value.content_type not in ['image/jpeg', 'image/jpg', 'image/png']:
+                raise serializers.ValidationError(
+                    f'Invalid file format. Only JPG and PNG images are supported. Your file type: {value.content_type}'
+                )
+
+        return value
+
+
+class ManualAgentCreateSerializer(serializers.Serializer):
+    """Serializer for creating an agent in Manual Mode"""
+    name = serializers.CharField(
+        required=True,
+        max_length=200,
+        help_text="Agent name (required in manual mode)"
+    )
+    prompt = serializers.CharField(
+        required=True,
+        help_text="System prompt for the agent"
+    )
+    avatar = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Avatar image file (JPG or PNG, max 5MB)"
+    )
+    app_connections = FlexibleListField(
+        child=serializers.CharField(max_length=100),
+        required=False,
+        default=list,
+        allow_empty=True,
+        help_text="List of app connection slugs (e.g., ['GMAIL', 'SLACK']). Can be sent as JSON string in multipart data."
+    )
+    agent_tools = FlexibleListField(
+        child=serializers.CharField(max_length=100),
+        required=False,
+        default=list,
+        allow_empty=True,
+        help_text="List of agent tool names (e.g., ['weather', 'calculator']). Can be sent as JSON string in multipart data."
+    )
+    files = serializers.ListField(
+        child=serializers.FileField(),
+        required=False,
+        allow_empty=True,
+        help_text="List of files to attach to this agent (for persistent context)"
+    )
+
+    def validate_avatar(self, value):
+        """Validate avatar file size and type"""
+        if value:
+            # Validate file size (5MB max)
+            max_size = 5 * 1024 * 1024  # 5MB
+            if value.size > max_size:
+                raise serializers.ValidationError(
+                    f'File size exceeds maximum allowed size of 5MB. Your file is {value.size / (1024 * 1024):.2f}MB.'
+                )
+
+            # Validate file type
+            if value.content_type not in ['image/jpeg', 'image/jpg', 'image/png']:
+                raise serializers.ValidationError(
+                    f'Invalid file format. Only JPG and PNG images are supported. Your file type: {value.content_type}'
+                )
+
+        return value
+
+    def validate_files(self, value):
+        """Validate file attachments"""
+        if value:
+            max_file_size = 10 * 1024 * 1024  # 10MB per file
+            for file in value:
+                if file.size > max_file_size:
+                    raise serializers.ValidationError(
+                        f'File {file.name} exceeds maximum allowed size of 10MB. File is {file.size / (1024 * 1024):.2f}MB.'
+                    )
+        return value
+
+
+class ManualAgentCreateResponseSerializer(serializers.Serializer):
+    """Response serializer for manual agent creation"""
+    agent = AgentSerializer(help_text="The newly created agent")
+    message = serializers.CharField(help_text="Success message")
+    files_attached = serializers.IntegerField(help_text="Number of files attached to the agent")
+
+
+class InstantiateTemplateResponseSerializer(serializers.Serializer):
+    """Response serializer for template instantiation"""
+    agent = AgentSerializer(help_text="The newly created agent")
+    message = serializers.CharField(help_text="Success message")
+    missing_connections = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="List of tools that require connection at account level"
+    )
+
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    # Explicitly define agent field to serialize UUID correctly
+    agent = serializers.UUIDField(read_only=True, source='agent.id')
+
+    class Meta:
+        model = agent_models.ChatMessage
+        fields = ['id', 'agent', 'role', 'content', 'attachments', 'created_at']
+        read_only_fields = ['created_at']
+
+
+class AgentChatRequestSerializer(serializers.Serializer):
+    """Request serializer for agent chat endpoint (agent ID comes from URL)"""
+    message = serializers.CharField(help_text="The message to send to the agent")
+    files = serializers.ListField(
+        child=serializers.FileField(),
+        required=False,
+        default=list,
+        help_text="Optional list of files to upload inline with the message (automatically marked as temporary and deleted after use). All persistent files from the agent's database are automatically loaded."
+    )
+    is_ephemeral = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="If true, the conversation will not be saved to the database (for embedded/public use)"
+    )
+
+
+class AgentChatResponseSerializer(serializers.Serializer):
+    """Response serializer for agent chat endpoint"""
+    user_message = ChatMessageSerializer(help_text="The user message that was sent")
+    assistant_message = ChatMessageSerializer(help_text="The assistant's response message")
+
+
+class SuggestedPromptsRequestSerializer(serializers.Serializer):
+    """Request serializer for generating suggested prompts"""
+    prompt = serializers.CharField(
+        help_text="The agent's purpose/prompt used to generate relevant example prompts"
+    )
+    app_connections = serializers.ListField(
+        child=serializers.CharField(max_length=100),
+        required=False,
+        default=list,
+        allow_empty=True,
+        help_text="List of tool names the agent will use (e.g., ['GMAIL', 'SLACK'])"
+    )
+
+
+class SuggestedPromptsResponseSerializer(serializers.Serializer):
+    """Response serializer for suggested prompts"""
+    suggested_prompts = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="List of 3 suggested prompts the user can use with this agent"
+    )
