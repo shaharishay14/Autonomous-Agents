@@ -295,36 +295,49 @@ class AgentViewSet(viewsets.ModelViewSet):
         """
         return Agent.objects.filter(user=self.request.user)
 
-    def _generate_agent_name(self, prompt: str) -> str:
+    def _generate_agent_name(self, prompt: str, app_connections: list = None, agent_tools: list = None) -> str:
         """
-        Generates an agent name from the prompt using OpenAI.
-        Returns a short, descriptive name (max 200 chars).
+        Generates an agent name from the prompt and tools using OpenAI.
+        Returns a short, descriptive name (2-3 words max).
         """
         try:
             agent_service = AgentService(self.request.user)
             if not agent_service.openai_client:
                 # Fallback if OpenAI is not configured
-                return f"Agent {prompt[:50]}..." if len(prompt) > 50 else f"Agent {prompt}"
+                return f"Agent {prompt[:30]}..." if len(prompt) > 30 else f"Agent {prompt}"
+
+            # Build context about tools
+            tools_context = ""
+            if app_connections or agent_tools:
+                all_tools = []
+                if app_connections:
+                    all_tools.extend(app_connections)
+                if agent_tools:
+                    all_tools.extend(agent_tools)
+                tools_context = f"\nConnected Tools: {', '.join(all_tools)}"
 
             system_prompt = (
-                "You are a naming assistant. Generate a short, descriptive name for an AI agent "
-                "based on its purpose/prompt. The name should be:\n"
-                "1. 2-5 words maximum\n"
-                "2. Descriptive of the agent's function\n"
-                "3. Professional and clear\n"
+                "You are a naming assistant. Generate a SHORT, catchy name for an AI agent "
+                "based on its purpose and connected tools. The name should be:\n"
+                "1. EXACTLY 2-3 words (this is critical!)\n"
+                "2. Descriptive of the agent's main function or connected tools\n"
+                "3. Professional and memorable\n"
                 "4. No quotes or special characters\n"
                 "5. Capitalize each word (Title Case)\n\n"
+                "Examples: 'Email Assistant', 'Research Helper', 'Gmail Manager'\n\n"
                 "Return ONLY the name, nothing else."
             )
+
+            user_content = f"Generate a name for an agent with this prompt:\n\n{prompt}{tools_context}"
 
             response = agent_service.openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Generate a name for an agent with this prompt:\n\n{prompt}"}
+                    {"role": "user", "content": user_content}
                 ],
                 temperature=0.7,
-                max_completion_tokens=50
+                max_completion_tokens=30
             )
 
             generated_name = response.choices[0].message.content.strip()
@@ -333,20 +346,21 @@ class AgentViewSet(viewsets.ModelViewSet):
             generated_name = generated_name.strip('"\'')
             generated_name = ' '.join(generated_name.split())  # Normalize whitespace
 
-            # Ensure it's not too long
-            if len(generated_name) > 200:
-                generated_name = generated_name[:197] + "..."
+            # Ensure it's 2-3 words - if longer, truncate to first 3 words
+            words = generated_name.split()
+            if len(words) > 3:
+                generated_name = ' '.join(words[:3])
 
             # Fallback if empty
             if not generated_name:
-                generated_name = f"Agent {prompt[:50]}..." if len(prompt) > 50 else f"Agent {prompt}"
+                generated_name = f"Agent {prompt[:30]}..." if len(prompt) > 30 else f"Agent {prompt}"
 
             return generated_name
 
         except Exception as e:
             print(f"Error generating agent name: {e}")
             # Fallback to a simple name based on prompt
-            fallback_name = prompt[:50].strip() if len(prompt) > 50 else prompt.strip()
+            fallback_name = prompt[:30].strip() if len(prompt) > 30 else prompt.strip()
             if not fallback_name:
                 fallback_name = "My Agent"
             return fallback_name
@@ -523,10 +537,12 @@ class AgentViewSet(viewsets.ModelViewSet):
         """
         prompt = serializer.validated_data.get('prompt', '')
         name = serializer.validated_data.get('name', '').strip()
+        app_connections = serializer.validated_data.get('app_connections', [])
+        agent_tools = serializer.validated_data.get('agent_tools', [])
 
-        # Generate name from prompt if not provided
+        # Generate name from prompt and tools if not provided
         if not name:
-            name = self._generate_agent_name(prompt)
+            name = self._generate_agent_name(prompt, app_connections, agent_tools)
             serializer.validated_data['name'] = name
 
         # Process avatar if provided, otherwise assign random default avatar
