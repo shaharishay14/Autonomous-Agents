@@ -25,12 +25,25 @@ class AgentToolsService:
         Execute a specific agent tool.
 
         Args:
-            tool_name: Name of the tool to execute
+            tool_name: Name of the tool to execute (can be tool name or function name)
             **kwargs: Tool-specific parameters
 
         Returns:
             dict with 'success', 'data', and optional 'error' keys
         """
+        # Map OpenAI function names to tool names
+        function_to_tool = {
+            'get_weather': 'weather',
+            'calculate': 'calculator',
+            'get_stock_data': 'yahoo_finance',
+            'search_youtube': 'youtube',
+            'web_search': 'web_search',
+            'read_website': 'website_reader'
+        }
+
+        # Convert function name to tool name if needed
+        normalized_tool_name = function_to_tool.get(tool_name, tool_name)
+
         tool_methods = {
             'weather': self.get_weather,
             'calculator': self.calculate,
@@ -40,11 +53,11 @@ class AgentToolsService:
             'website_reader': self.read_website
         }
 
-        method = tool_methods.get(tool_name)
+        method = tool_methods.get(normalized_tool_name)
         if not method:
             return {
                 'success': False,
-                'error': f'Unknown tool: {tool_name}'
+                'error': f'Unknown tool: {tool_name} (normalized: {normalized_tool_name})'
             }
 
         try:
