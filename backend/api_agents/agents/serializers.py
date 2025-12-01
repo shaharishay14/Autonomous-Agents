@@ -131,6 +131,101 @@ class AgentSerializer(serializers.ModelSerializer):
         return value
 
 
+class UnifiedAgentCreateSerializer(serializers.Serializer):
+    """
+    Unified serializer for creating agents via all 3 methods:
+    1. YOLO Mode: Only prompt required, name auto-generated
+    2. Manual Mode: Name + prompt required, user controls everything
+    3. Template Mode: template_id provided, uses template as base with optional overrides
+    """
+    template_id = serializers.UUIDField(
+        required=False,
+        allow_null=True,
+        help_text="UUID of agent template to instantiate (Template Mode)"
+    )
+    name = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=200,
+        help_text="Agent name (required for Manual Mode, auto-generated for YOLO Mode, optional override for Template Mode)"
+    )
+    prompt = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="System prompt (required for YOLO/Manual, optional override for Template Mode)"
+    )
+    avatar = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Avatar image file (JPG or PNG, max 5MB)"
+    )
+    app_connections = FlexibleListField(
+        child=serializers.CharField(max_length=100),
+        required=False,
+        default=list,
+        allow_empty=True,
+        help_text="List of app connection slugs (e.g., ['GMAIL', 'SLACK'])"
+    )
+    agent_tools = FlexibleListField(
+        child=serializers.CharField(max_length=100),
+        required=False,
+        default=list,
+        allow_empty=True,
+        help_text="List of agent tool names (e.g., ['weather', 'calculator'])"
+    )
+    files = serializers.ListField(
+        child=serializers.FileField(),
+        required=False,
+        allow_empty=True,
+        help_text="List of files to attach to this agent"
+    )
+
+    def validate(self, data):
+        """Cross-field validation to ensure correct mode requirements"""
+        template_id = data.get('template_id')
+        name = data.get('name', '').strip()
+        prompt = data.get('prompt', '').strip()
+
+        # Template Mode: template_id provided
+        if template_id:
+            # Template mode - prompt and name are optional (will use template defaults)
+            return data
+
+        # Manual or YOLO Mode: no template_id
+        # Require prompt for both modes
+        if not prompt:
+            raise serializers.ValidationError({
+                'prompt': 'This field is required when not using a template.'
+            })
+
+        return data
+
+    def validate_avatar(self, value):
+        """Validate avatar file size and type"""
+        if value:
+            max_size = 5 * 1024 * 1024  # 5MB
+            if value.size > max_size:
+                raise serializers.ValidationError(
+                    f'File size exceeds maximum allowed size of 5MB. Your file is {value.size / (1024 * 1024):.2f}MB.'
+                )
+            if value.content_type not in ['image/jpeg', 'image/jpg', 'image/png']:
+                raise serializers.ValidationError(
+                    f'Invalid file format. Only JPG and PNG images are supported. Your file type: {value.content_type}'
+                )
+        return value
+
+    def validate_files(self, value):
+        """Validate file attachments"""
+        if value:
+            max_file_size = 10 * 1024 * 1024  # 10MB per file
+            for file in value:
+                if file.size > max_file_size:
+                    raise serializers.ValidationError(
+                        f'File {file.name} exceeds maximum allowed size of 10MB. File is {file.size / (1024 * 1024):.2f}MB.'
+                    )
+        return value
+
+
 class ManualAgentCreateSerializer(serializers.Serializer):
     """Serializer for creating an agent in Manual Mode"""
     name = serializers.CharField(

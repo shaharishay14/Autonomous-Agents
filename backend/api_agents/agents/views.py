@@ -30,7 +30,7 @@ from ..serializers import (
     InstantiateTemplateResponseSerializer, CreditBalanceSerializer,
     UsageLogSerializer, AddCreditsRequestSerializer, AddCreditsResponseSerializer,
     MessagingChannelSerializer, ConnectTelegramBotSerializer, DisconnectMessagingChannelSerializer,
-    AppConnectionDisplaySerializer, ManualAgentCreateSerializer, ManualAgentCreateResponseSerializer
+    AppConnectionDisplaySerializer, UnifiedAgentCreateSerializer, ManualAgentCreateSerializer, ManualAgentCreateResponseSerializer
 )
 from .services.agent_service import AgentService
 from ..tools.composio_config import APP_SLUGS, APP_METADATA, TOP_SLUGS_BY_APP
@@ -281,6 +281,7 @@ class AgentViewSet(viewsets.ModelViewSet):
     API endpoint for managing AI Agents (CRUD operations).
 
     Features:
+    - Unified creation endpoint supporting 3 modes: YOLO, Manual, Template
     - Tools are automatically generated from app_connections
     - All operations are scoped to the authenticated user
     - Supports avatar upload via multipart/form-data in create and update endpoints
@@ -288,6 +289,12 @@ class AgentViewSet(viewsets.ModelViewSet):
     serializer_class = AgentSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_serializer_class(self):
+        """Return different serializer for create vs other actions"""
+        if self.action == 'create':
+            return UnifiedAgentCreateSerializer
+        return AgentSerializer
 
     def get_queryset(self):
         """
@@ -546,42 +553,127 @@ class AgentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """
-        Called when a new agent is created (POST).
-        Generates agent name from prompt if not provided.
-        Handles avatar image processing if provided, or assigns random default avatar.
+        Unified agent creation handler supporting 3 modes:
+        1. Template Mode: template_id provided
+        2. Manual Mode: name provided (no template)
+        3. YOLO Mode: neither template_id nor name provided
         """
+        template_id = serializer.validated_data.get('template_id')
+
+        # ===================================================================
+        # MODE 1: Template Mode
+        # ===================================================================
+        if template_id:
+            return self._create_from_template(serializer, template_id)
+
+        # ===================================================================
+        # MODE 2 & 3: Manual or YOLO Mode
+        # ===================================================================
+        return self._create_manual_or_yolo(serializer)
+
+    def _create_from_template(self, serializer, template_id):
+        """Handle Template Mode creation"""
+        try:
+            # Load the template
+            template = AgentTemplate.objects.get(id=template_id)
+        except AgentTemplate.DoesNotExist:
+            raise serializers.ValidationError({'template_id': 'Template not found'})
+
+        # Start with template defaults
+        prompt = serializer.validated_data.get('prompt') or template.system_prompt
+        name = serializer.validated_data.get('name') or template.name
+        app_connections = serializer.validated_data.get('app_connections') or template.default_tools or []
+        agent_tools = serializer.validated_data.get('agent_tools') or template.default_agent_tools or []
+
+        # Process avatar (user provided or template default or random)
+        avatar_file = serializer.validated_data.get('avatar')
+        avatar_data, avatar_filename, avatar_mime = None, None, 'image/jpeg'
+
+        if avatar_file:
+            avatar_data = self._process_avatar_image(avatar_file)
+            avatar_filename = avatar_file.name
+        else:
+            # Use random default avatar
+            avatar_data, avatar_filename, avatar_mime = self._get_random_default_avatar()
+
+        # Handle files
+        files = serializer.validated_data.get('files', [])
+
+        # Create the agent
+        agent = Agent.objects.create(
+            user=self.request.user,
+            name=name,
+            prompt=prompt,
+            avatar_image=avatar_data,
+            avatar_filename=avatar_filename,
+            avatar_mime_type=avatar_mime,
+            app_connections=app_connections,
+            agent_tools=agent_tools,
+            tools=[]  # Will be populated by _sync_agent_tools
+        )
+
+        # Sync tools from app_connections
+        self._sync_agent_tools(agent, app_connections)
+
+        # Handle file attachments
+        self._attach_files_to_agent(agent, files)
+
+        # Increment template usage count
+        template.usage_count += 1
+        template.save()
+
+        print(f"✅ Created agent from template: {template.name} → {agent.name}")
+
+    def _create_manual_or_yolo(self, serializer):
+        """Handle Manual Mode or YOLO Mode creation"""
         prompt = serializer.validated_data.get('prompt', '')
         name = serializer.validated_data.get('name', '').strip()
         app_connections = serializer.validated_data.get('app_connections', [])
         agent_tools = serializer.validated_data.get('agent_tools', [])
 
-        # Generate name from prompt and tools if not provided
-        if not name:
+        # Determine mode: Manual (name provided) or YOLO (no name)
+        is_yolo_mode = not name
+
+        # YOLO Mode: Auto-generate name
+        if is_yolo_mode:
             name = self._generate_agent_name(prompt, app_connections, agent_tools)
-            serializer.validated_data['name'] = name
+            print(f"🎲 YOLO Mode: Generated name '{name}'")
+        else:
+            print(f"✋ Manual Mode: Using provided name '{name}'")
 
         # Process avatar if provided, otherwise assign random default avatar
         avatar_file = serializer.validated_data.get('avatar')
-        if avatar_file:
-            # User uploaded custom avatar - process it
-            processed_image_data = self._process_avatar_image(avatar_file)
-            if processed_image_data:
-                serializer.validated_data['avatar_image'] = processed_image_data
-                serializer.validated_data['avatar_filename'] = avatar_file.name
-                serializer.validated_data['avatar_mime_type'] = 'image/jpeg'
-            # Remove the avatar field (it's write-only)
-            serializer.validated_data.pop('avatar', None)
-        else:
-            # No avatar uploaded - assign random default avatar
-            default_avatar_data, default_filename, default_mime = self._get_random_default_avatar()
-            if default_avatar_data:
-                serializer.validated_data['avatar_image'] = default_avatar_data
-                serializer.validated_data['avatar_filename'] = default_filename
-                serializer.validated_data['avatar_mime_type'] = default_mime
-                print(f"✅ Assigned default avatar: {default_filename}")
+        avatar_data, avatar_filename, avatar_mime = None, None, 'image/jpeg'
 
-        # Generate tools from app_connections (if any)
-        self._generate_tools_for_agent(serializer, self.request.user)
+        if avatar_file:
+            avatar_data = self._process_avatar_image(avatar_file)
+            avatar_filename = avatar_file.name
+        else:
+            avatar_data, avatar_filename, avatar_mime = self._get_random_default_avatar()
+
+        # Handle files
+        files = serializer.validated_data.get('files', [])
+
+        # Create the agent
+        agent = Agent.objects.create(
+            user=self.request.user,
+            name=name,
+            prompt=prompt,
+            avatar_image=avatar_data,
+            avatar_filename=avatar_filename,
+            avatar_mime_type=avatar_mime,
+            app_connections=app_connections,
+            agent_tools=agent_tools,
+            tools=[]
+        )
+
+        # Sync tools from app_connections
+        self._sync_agent_tools(agent, app_connections)
+
+        # Handle file attachments
+        self._attach_files_to_agent(agent, files)
+
+        print(f"✅ Created agent: {agent.name}")
 
     def perform_update(self, serializer):
         """
@@ -1826,6 +1918,27 @@ class AgentViewSet(viewsets.ModelViewSet):
         agent.tools = all_slugs
         agent.save()
         print(f"✅ Synced {len(all_slugs)} tool slugs for agent {agent.name}")
+
+
+    def _attach_files_to_agent(self, agent, files):
+        """Attach files to an agent for persistent context"""
+        if not files:
+            return
+        files_count = 0
+        for file in files:
+            file_content = file.read()
+            FileAttachment.objects.create(
+                user=agent.user,
+                agent=agent,
+                file_content=file_content,
+                original_filename=file.name,
+                file_size=file.size,
+                mime_type=file.content_type or 'application/octet-stream',
+                is_temporary=False
+            )
+            files_count += 1
+            print(f"📎 Attached file: {file.name} ({file.size} bytes) to agent {agent.name}")
+        print(f"✅ Attached {files_count} file(s) to agent {agent.name}")
 
     @extend_schema(
         tags=['agents'],
