@@ -334,7 +334,7 @@ class AgentViewSet(viewsets.ModelViewSet):
 
             user_content = f"Generate a name for an agent with this prompt:\n\n{prompt}{tools_context}"
 
-            # Call async OpenAI client synchronously using async_to_sync
+            # Call async OpenAI client synchronously using asyncio.run
             async def call_openai():
                 return await agent_service.openai_client.chat.completions.create(
                     model="gpt-4o-mini",
@@ -346,7 +346,13 @@ class AgentViewSet(viewsets.ModelViewSet):
                     max_completion_tokens=30
                 )
 
-            response = async_to_sync(call_openai)()
+            # Use asyncio.run to properly execute the async function
+            try:
+                response = asyncio.run(call_openai())
+            except RuntimeError:
+                # If already in an event loop, use async_to_sync
+                response = async_to_sync(call_openai)()
+
             generated_name = response.choices[0].message.content.strip()
 
             # Clean up the name (remove quotes, extra whitespace)
@@ -503,12 +509,13 @@ class AgentViewSet(viewsets.ModelViewSet):
                 print(f"⚠️  Default avatars directory not found: {default_avatars_path}")
                 return None, None, None
 
-            # List all image files in the directory
+            # List all image files in the directory (exclude Mac metadata files starting with ._)
             image_extensions = ['.jpg', '.jpeg', '.png']
             available_images = [
                 f for f in os.listdir(default_avatars_path)
                 if os.path.isfile(os.path.join(default_avatars_path, f))
                 and os.path.splitext(f.lower())[1] in image_extensions
+                and not f.startswith('._')  # Exclude Mac metadata files
             ]
 
             if not available_images:
