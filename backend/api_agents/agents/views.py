@@ -105,34 +105,64 @@ from ..credits import deduct_credits_for_message
     create=extend_schema(
         tags=['agents'],
         operation_id='agents_create',
-        summary='Create a new agent',
+        summary='Create a new agent (Unified Endpoint)',
         description='''
-        Creates a new AI agent with a prompt. The agent name is automatically generated from the prompt using AI.
+        **Unified Agent Creation Endpoint** - Supports 3 creation modes through a single endpoint:
 
-        **New Flow:**
-        - **`prompt`** (required): The agent's purpose/instructions
-        - **`name`** (optional): If not provided, will be auto-generated from the prompt
-        - **`app_connections`** (optional): List of app names (e.g., ["GMAIL", "SLACK"]). If empty or omitted, agent is created with no tools and can be added later.
+        ## Mode 1: YOLO Mode (Quick Creation)
+        Provide only a `prompt` and let the system auto-generate everything:
+        - ✅ Name auto-generated from prompt + tools
+        - ✅ Random avatar assigned
+        - ✅ Tools auto-determined from prompt context
 
-        **Response:**
-        - Returns the created agent with generated name and tools (if app_connections provided)
-        - If no app_connections provided, tools will be empty array
+        **Required:** `prompt` only
+
+        ## Mode 2: Manual Mode (Full Control)
+        Provide `name` + `prompt` for complete control over agent creation:
+        - ✅ You choose the name
+        - ✅ You select tools (app_connections, agent_tools)
+        - ✅ You can upload custom avatar
+        - ✅ You can attach files for persistent context
+
+        **Required:** `name` + `prompt`
+
+        ## Mode 3: Template Mode (Pre-configured)
+        Provide `template_id` to instantiate from a pre-built template:
+        - ✅ Uses template's default name, prompt, and tools
+        - ✅ Optionally override any field (name, prompt, tools, avatar)
+        - ✅ Increments template usage count
+
+        **Required:** `template_id` only (prompt optional)
+
+        ---
+
+        ## All Available Fields:
+        - **`template_id`** (UUID, optional): Template to instantiate from
+        - **`name`** (string, optional): Agent name (required for Manual, auto-generated for YOLO, optional override for Template)
+        - **`prompt`** (string, optional): System prompt (required for YOLO/Manual, optional override for Template)
+        - **`avatar`** (file, optional): JPG/PNG image, max 5MB
+        - **`app_connections`** (array, optional): List of Composio app slugs (e.g., ["GMAIL", "SLACK"])
+        - **`agent_tools`** (array, optional): List of agent tool names (e.g., ["weather", "calculator"])
+        - **`files`** (array, optional): List of files to attach for persistent context (max 10MB each)
+
+        **Content-Type:** `multipart/form-data` (for file uploads) or `application/json`
         ''',
-        request=AgentSerializer,
+        request=UnifiedAgentCreateSerializer,
         responses={
             201: OpenApiResponse(
                 response=AgentSerializer,
                 description='Agent created successfully',
                 examples=[
                     OpenApiExample(
-                        'Agent Created (with tools)',
+                        'YOLO Mode Response',
                         value={
                             'id': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
                             'user': 'username',
-                            'name': 'Email And Meeting Manager',  # Auto-generated
-                            'prompt': 'Help me manage my emails and schedule meetings',
-                            'tools': ['GMAIL_SEND_EMAIL', 'GMAIL_FETCH_EMAILS', 'GOOGLECALENDAR_CREATE_EVENT'],
-                            'app_connections': ['GMAIL', 'GOOGLECALENDAR'],
+                            'name': 'Email Manager',  # Auto-generated
+                            'prompt': 'Help me manage my emails and calendar',
+                            'tools': ['GMAIL_SEND_EMAIL', 'GMAIL_FETCH_EMAILS'],
+                            'app_connections': ['GMAIL'],
+                            'agent_tools': [],
                             'message_count': 0,
                             'created_at': '2024-01-01T00:00:00Z',
                             'updated_at': '2024-01-01T00:00:00Z'
@@ -141,14 +171,32 @@ from ..credits import deduct_credits_for_message
                         status_codes=['201']
                     ),
                     OpenApiExample(
-                        'Agent Created (no tools)',
+                        'Manual Mode Response',
                         value={
                             'id': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
                             'user': 'username',
-                            'name': 'Email Assistant',  # Auto-generated
-                            'prompt': 'Help me with emails',
-                            'tools': [],  # Empty - can add tools later
-                            'app_connections': [],  # Empty - can add later
+                            'name': 'My Custom Agent',  # User-provided
+                            'prompt': 'You are a weather assistant',
+                            'tools': [],
+                            'app_connections': [],
+                            'agent_tools': ['weather', 'calculator'],
+                            'message_count': 0,
+                            'created_at': '2024-01-01T00:00:00Z',
+                            'updated_at': '2024-01-01T00:00:00Z'
+                        },
+                        response_only=True,
+                        status_codes=['201']
+                    ),
+                    OpenApiExample(
+                        'Template Mode Response',
+                        value={
+                            'id': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+                            'user': 'username',
+                            'name': 'Email Assistant',  # From template
+                            'prompt': 'You are an email management assistant...',  # From template
+                            'tools': ['GMAIL_SEND_EMAIL', 'GMAIL_FETCH_EMAILS'],
+                            'app_connections': ['GMAIL'],
+                            'agent_tools': [],
                             'message_count': 0,
                             'created_at': '2024-01-01T00:00:00Z',
                             'updated_at': '2024-01-01T00:00:00Z'
@@ -158,26 +206,46 @@ from ..credits import deduct_credits_for_message
                     )
                 ]
             ),
-            400: OpenApiResponse(description='Validation error'),
+            400: OpenApiResponse(description='Validation error - missing required fields or invalid template_id'),
             401: OpenApiResponse(description='Authentication required')
         },
         examples=[
             OpenApiExample(
-                'Create Agent (prompt only)',
+                'YOLO Mode: Prompt Only',
                 value={
                     'prompt': 'Help me manage my emails and schedule meetings'
                 },
                 request_only=True,
-                description='Create agent with just a prompt. Name will be auto-generated.'
+                description='Simplest mode - just provide a prompt and let AI handle the rest.'
             ),
             OpenApiExample(
-                'Create Agent (with tools)',
+                'Manual Mode: Full Control',
                 value={
-                    'prompt': 'Help me manage my emails',
-                    'app_connections': ['GMAIL', 'SLACK']
+                    'name': 'My Email Agent',
+                    'prompt': 'You are an email management assistant',
+                    'app_connections': ['GMAIL', 'SLACK'],
+                    'agent_tools': ['weather']
                 },
                 request_only=True,
-                description='Create agent with prompt and tools. Name will be auto-generated.'
+                description='Full control mode - specify name, prompt, and all tools.'
+            ),
+            OpenApiExample(
+                'Template Mode: From Template',
+                value={
+                    'template_id': '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+                },
+                request_only=True,
+                description='Use a pre-configured template. All fields are optional overrides.'
+            ),
+            OpenApiExample(
+                'Template Mode: With Overrides',
+                value={
+                    'template_id': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+                    'name': 'Custom Name Override',
+                    'app_connections': ['GMAIL', 'GOOGLECALENDAR']
+                },
+                request_only=True,
+                description='Use template but override specific fields like name or tools.'
             )
         ]
     ),
