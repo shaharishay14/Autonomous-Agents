@@ -300,11 +300,15 @@ class AgentViewSet(viewsets.ModelViewSet):
         Generates an agent name from the prompt and tools using OpenAI.
         Returns a short, descriptive name (2-3 words max).
         """
+        import asyncio
+        from asgiref.sync import async_to_sync
+
         try:
             agent_service = AgentService(self.request.user)
             if not agent_service.openai_client:
                 # Fallback if OpenAI is not configured
-                return f"Agent {prompt[:30]}..." if len(prompt) > 30 else f"Agent {prompt}"
+                print("OpenAI client not configured, using default name")
+                return "My Agent"
 
             # Build context about tools
             tools_context = ""
@@ -330,16 +334,19 @@ class AgentViewSet(viewsets.ModelViewSet):
 
             user_content = f"Generate a name for an agent with this prompt:\n\n{prompt}{tools_context}"
 
-            response = agent_service.openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_content}
-                ],
-                temperature=0.7,
-                max_completion_tokens=30
-            )
+            # Call async OpenAI client synchronously using async_to_sync
+            async def call_openai():
+                return await agent_service.openai_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_content}
+                    ],
+                    temperature=0.7,
+                    max_completion_tokens=30
+                )
 
+            response = async_to_sync(call_openai)()
             generated_name = response.choices[0].message.content.strip()
 
             # Clean up the name (remove quotes, extra whitespace)
@@ -352,18 +359,19 @@ class AgentViewSet(viewsets.ModelViewSet):
                 generated_name = ' '.join(words[:3])
 
             # Fallback if empty
-            if not generated_name:
-                generated_name = f"Agent {prompt[:30]}..." if len(prompt) > 30 else f"Agent {prompt}"
+            if not generated_name or len(generated_name.strip()) == 0:
+                print("Generated name is empty, using default name")
+                return "My Agent"
 
+            print(f"✅ Generated agent name: {generated_name}")
             return generated_name
 
         except Exception as e:
-            print(f"Error generating agent name: {e}")
-            # Fallback to a simple name based on prompt
-            fallback_name = prompt[:30].strip() if len(prompt) > 30 else prompt.strip()
-            if not fallback_name:
-                fallback_name = "My Agent"
-            return fallback_name
+            print(f"❌ Error generating agent name: {e}")
+            import traceback
+            traceback.print_exc()
+            # Always fallback to "My Agent" on error
+            return "My Agent"
 
     def _generate_tools_for_agent(self, serializer, user):
         """
