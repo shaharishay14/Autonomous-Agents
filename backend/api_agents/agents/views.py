@@ -2432,17 +2432,37 @@ class AgentTemplateViewSet(viewsets.GenericViewSet,
         """List all active agent templates grouped by category"""
         queryset = self.get_queryset()
 
-        # Group templates by category
-        grouped_templates = {}
+        # Group templates by category with category metadata
+        grouped_data = {}
         for template in queryset:
             category = template.category
-            if category not in grouped_templates:
-                grouped_templates[category] = []
+            if category not in grouped_data:
+                grouped_data[category] = {
+                    'category_display_name': template.category_display_name,
+                    'category_icon': template.category_icon,
+                    'templates': []
+                }
 
             serializer = self.get_serializer(template)
-            grouped_templates[category].append(serializer.data)
+            template_data = serializer.data
+            
+            # Remove category fields from template data
+            template_data.pop('category_display_name', None)
+            template_data.pop('category_icon', None)
+            
+            grouped_data[category]['templates'].append(template_data)
 
-        return Response(grouped_templates)
+        # Convert to array format
+        result = [
+            {
+                'category_display_name': data['category_display_name'],
+                'category_icon': data['category_icon'],
+                'templates': data['templates']
+            }
+            for data in grouped_data.values()
+        ]
+
+        return Response(result)
 
     @extend_schema(
         tags=['agent-templates'],
