@@ -209,12 +209,12 @@ class AgentToolsService:
                 'error': f'Calculation error: {str(e)}'
             }
 
-    def get_stock_data(self, symbol: str) -> Dict[str, Any]:
+    def get_stock_data(self, ticker: str) -> Dict[str, Any]:
         """
         Get stock data using yfinance library.
 
         Args:
-            symbol: Stock symbol (e.g., 'AAPL', 'GOOGL')
+            ticker: Stock ticker symbol (e.g., 'AAPL', 'GOOGL')
 
         Returns:
             dict with stock data
@@ -222,16 +222,16 @@ class AgentToolsService:
         try:
             import yfinance as yf
 
-            ticker = yf.Ticker(symbol.upper())
-            info = ticker.info
+            stock_ticker = yf.Ticker(ticker.upper())
+            info = stock_ticker.info
 
             # Get recent price data
-            hist = ticker.history(period='1d')
+            hist = stock_ticker.history(period='1d')
 
             if hist.empty:
                 return {
                     'success': False,
-                    'error': f'No data found for symbol: {symbol}'
+                    'error': f'No data found for ticker: {ticker}'
                 }
 
             current_price = hist['Close'].iloc[-1]
@@ -239,8 +239,8 @@ class AgentToolsService:
             return {
                 'success': True,
                 'data': {
-                    'symbol': symbol.upper(),
-                    'name': info.get('longName', symbol),
+                    'symbol': ticker.upper(),
+                    'name': info.get('longName', ticker),
                     'current_price': round(current_price, 2),
                     'currency': info.get('currency', 'USD'),
                     'market_cap': info.get('marketCap'),
@@ -482,12 +482,12 @@ class AgentToolsService:
                 'parameters': {
                     'type': 'object',
                     'properties': {
-                        'symbol': {
+                        'ticker': {
                             'type': 'string',
                             'description': 'Stock ticker symbol (e.g., "AAPL", "GOOGL", "TSLA")'
                         }
                     },
-                    'required': ['symbol']
+                    'required': ['ticker']
                 }
             },
             'youtube': {
