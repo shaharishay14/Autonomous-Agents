@@ -40,15 +40,21 @@ class AgentService:
 
     def _load_auth_configs(self) -> Dict[str, str]:
         """
-        Loads Composio Auth Config IDs from a JSON file in the project root.
+        Loads Composio Auth Config IDs from a JSON file in the backend directory.
         """
         try:
-            config_path = Path(__file__).parent.parent / "auth_configs.json"
+            # Navigate from backend/api_agents/agents/services/agent_service.py
+            # up to backend/auth_configs.json
+            config_path = Path(__file__).parent.parent.parent.parent / "auth_configs.json"
             if config_path.exists():
                 with open(config_path, 'r') as f:
-                    return json.load(f)
+                    configs = json.load(f)
+                    print(f"✅ Loaded {len(configs)} auth configs from {config_path}")
+                    return configs
+            else:
+                print(f"⚠️  Auth configs file not found at {config_path}")
         except Exception as e:
-            print(f"Warning: Could not load auth configs: {e}")
+            print(f"❌ Warning: Could not load auth configs: {e}")
         return {}
 
     def _initialize_clients(self):
