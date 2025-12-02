@@ -741,8 +741,21 @@ class AgentViewSet(viewsets.ModelViewSet):
 
         # Only use app_connections if explicitly provided in request
         # By default, agents start with no tools connected
-        app_connections = serializer.validated_data.get('app_connections', [])
-        agent_tools = serializer.validated_data.get('agent_tools', [])
+        # Check the raw request data to avoid using serializer defaults
+        app_connections = []
+        agent_tools = []
+
+        if 'app_connections' in self.request.data:
+            app_connections = serializer.validated_data.get('app_connections', [])
+            print(f"📦 app_connections provided in request: {app_connections}")
+        else:
+            print(f"⚪ app_connections NOT provided in request, using empty list")
+
+        if 'agent_tools' in self.request.data:
+            agent_tools = serializer.validated_data.get('agent_tools', [])
+            print(f"🔧 agent_tools provided in request: {agent_tools}")
+        else:
+            print(f"⚪ agent_tools NOT provided in request, using empty list")
 
         # Determine mode: Manual (name provided) or YOLO (no name)
         is_yolo_mode = not name
