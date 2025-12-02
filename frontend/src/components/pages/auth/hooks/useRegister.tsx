@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { toast } from 'react-toastify'
 import { signupSchema } from '../schema'
+import { useUserStore } from '../../../../../store/user.store'
 import { registerUser, type RegisterResponse } from '../requests'
 import type { SignupFormData } from '../types'
 import type { AxiosError } from 'axios'
@@ -14,7 +15,7 @@ interface ErrorResponse {
 
 export const useRegister = () => {
   const navigate = useNavigate()
-  // No longer need setUser and setIsAuthenticated - user must verify email first
+  const {setUser, setIsAuthenticated} = useUserStore((state) => state)
 
   const {
     register,
@@ -33,17 +34,18 @@ export const useRegister = () => {
   } = useMutation<RegisterResponse, AxiosError<ErrorResponse>, SignupFormData>({
     mutationFn: registerUser,
     onSuccess: (data) => {
-      // NO AUTO-LOGIN - User must verify email first
-      // Do NOT set user in store or setIsAuthenticated
-
-      // Save email to localStorage for check-email page
-      localStorage.setItem('verificationEmail', data.user.email)
-
-      // Show success message
-      toast.success('Registration successful! Please check your email to verify your account.')
-
-      // Navigate to check-email page instead of builder
-      navigate('/auth/check-email')
+      // שמירת המשתמש ב-store
+      setUser(data.user)
+      setIsAuthenticated(true)
+      // ה-tokens נשמרים אוטומטית ב-cookies על ידי הדפדפן
+      // data.access - access token
+      // data.refresh - refresh token
+      
+      // הצגת הודעת הצלחה
+      toast.success('Registration successful! Welcome to KGEN21')
+      
+      // ניווט לדף הbuilder
+      navigate('/builder')
     },
     onError: (error) => {
       const message = error.response?.data?.message || error.message || 'Registration failed'

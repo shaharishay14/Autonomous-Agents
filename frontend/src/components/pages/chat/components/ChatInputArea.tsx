@@ -60,13 +60,13 @@ export const ChatInputArea = ({
 
   return (
     <div className={`border-t backdrop-blur-sm transition-all duration-300 ${
-      showSuggestions && suggestedPrompts.length > 0 ? 'p-6' : 'p-4'
+      showSuggestions && suggestedPrompts.length > 0 ? 'p-3 md:p-6' : 'p-2 md:p-4'
     } ${
       isDarkMode
         ? 'border-white/[0.08] bg-gradient-to-r from-gray-900/50 to-gray-900/80'
         : 'border-purple-200 bg-gradient-to-r from-white/90 via-purple-50/50 to-pink-50/50'
     }`}>
-      <div className="w-[90%] mx-auto">
+      <div className="w-full md:w-[90%] mx-auto">
         {/* Suggested Prompts */}
         {showSuggestions && suggestedPrompts.length > 0 && (
           <div className="mb-4 relative animate-in fade-in slide-in-from-top-2 duration-300">

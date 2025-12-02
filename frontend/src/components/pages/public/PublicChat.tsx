@@ -62,7 +62,7 @@ function PublicChat() {
   return (
     <LayoutPublicChat>
       {/* Header */}
-      <PublicChatHeader agent={agent} />
+        <PublicChatHeader agent={agent} />
 
       {/* Main Content */}
       <div className="flex-1 p-6 overflow-y-auto chat-scrollbar">

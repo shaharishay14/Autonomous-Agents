@@ -23,7 +23,7 @@ export const ChatMessages = ({
   status
 }: ChatMessagesProps) => {
   return (
-    <div className="flex-1 p-6 overflow-y-auto chat-scrollbar">
+    <div className="flex-1 p-2 md:p-6 overflow-y-auto chat-scrollbar">
       <div className="w-full mx-auto">
         {messages.length === 0 ? (
           <ChatEmptyState 

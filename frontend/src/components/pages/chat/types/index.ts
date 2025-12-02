@@ -3,7 +3,7 @@ export interface Agent {
   user: string;
   name: string;
   prompt: string;
-  tools: string;
+  tools: string[];
   app_connections: string[];
   agent_tools: string[];
   created_at: string;

@@ -36,7 +36,7 @@ function ShareAgentModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/70 backdrop-blur-sm"
@@ -45,13 +45,13 @@ function ShareAgentModal() {
       
       {/* Modal */}
       <div 
-        className={`relative w-full max-w-lg rounded-3xl shadow-2xl border-2 ${
+        className={`relative w-full max-w-lg rounded-2xl sm:rounded-3xl shadow-2xl border-2 max-h-[95vh] overflow-y-auto ${
           isDarkMode 
             ? 'bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 border-gray-700/50' 
             : 'bg-white border-gray-200'
         }`}
       >
-        <div className="p-8">
+        <div className="p-4 sm:p-6 md:p-8">
           <ModalHeader 
             isDarkMode={isDarkMode}
             agentName={shareAgentModal.agentName || 'Agent'}
@@ -65,7 +65,7 @@ function ShareAgentModal() {
           />
 
           {/* Content */}
-          <div className={`rounded-2xl p-6 ${
+          <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 ${
             isDarkMode ? 'bg-white/[0.03]' : 'bg-gray-50'
           }`}>
             {activeTab === 'link' && (

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import useDarkModeStore from '../../../../../store/darkmode.store';
-import useModalsStore from '../../../../../store/modals.store';
-import { useUpdateWorkflow } from '../hooks';
-import { useGetAgents } from '../../agents/hooks';
-import { useCreateAgent } from '../../builder/hooks';
+import useDarkModeStore from '../../../../../../store/darkmode.store';
+import useModalsStore from '../../../../../../store/modals.store';
+import { useUpdateWorkflow } from '../../hooks';
+import { useGetAgents } from '../../../agents/hooks';
+import { useCreateAgent } from '../../../builder/hooks';
 import { Plus, Search, ArrowRight } from 'lucide-react';
 
 type TabType = 'existing' | 'new';
@@ -88,7 +88,7 @@ function AddAgentToWorkflowModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/70 backdrop-blur-sm"
@@ -97,48 +97,48 @@ function AddAgentToWorkflowModal() {
       
       {/* Modal */}
       <div 
-        className={`relative w-full max-w-2xl rounded-3xl shadow-2xl border-2 ${
+        className={`relative w-full max-w-2xl rounded-2xl sm:rounded-3xl shadow-2xl border-2 max-h-[95vh] overflow-y-auto ${
           isDarkMode 
             ? 'bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 border-gray-700/50' 
             : 'bg-white border-gray-200'
         }`}
       >
-        <div className="p-8">
+        <div className="p-4 sm:p-6 md:p-8">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className={`p-3 rounded-xl ${
+          <div className="flex items-center justify-between mb-4 sm:mb-6 gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className={`p-2 sm:p-3 rounded-lg sm:rounded-xl flex-shrink-0 ${
                 isDarkMode 
                   ? 'bg-gradient-to-br from-purple-500 to-pink-500' 
                   : 'bg-gradient-to-br from-purple-500 to-pink-500'
               }`}>
-                <Plus className="w-6 h-6 text-white" />
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <div>
-                <h2 className={`text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent`}>
+              <div className="min-w-0">
+                <h2 className={`text-lg sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent`}>
                   Add Agent to Workflow
                 </h2>
               </div>
             </div>
             <button
               onClick={handleClose}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`p-1.5 sm:p-2 rounded-lg transition-colors flex-shrink-0 ${
                 isDarkMode
                   ? 'text-gray-400 hover:text-white hover:bg-white/10'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 mb-6">
+          <div className="flex gap-1.5 sm:gap-2 mb-4 sm:mb-6">
             <button
               onClick={() => setActiveTab('existing')}
-              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all ${
+              className={`flex-1 py-2.5 sm:py-3 px-3 sm:px-6 rounded-lg sm:rounded-xl font-medium transition-all text-sm sm:text-base ${
                 activeTab === 'existing'
                   ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
                   : isDarkMode
@@ -146,11 +146,12 @@ function AddAgentToWorkflowModal() {
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              Select Existing
+              <span className="hidden xs:inline">Select Existing</span>
+              <span className="xs:hidden">Existing</span>
             </button>
             <button
               onClick={() => setActiveTab('new')}
-              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all ${
+              className={`flex-1 py-2.5 sm:py-3 px-3 sm:px-6 rounded-lg sm:rounded-xl font-medium transition-all text-sm sm:text-base ${
                 activeTab === 'new'
                   ? 'bg-gradient-to-r from-purple-500 to-orange-500 text-white shadow-lg'
                   : isDarkMode
@@ -158,17 +159,18 @@ function AddAgentToWorkflowModal() {
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              Create New
+              <span className="hidden xs:inline">Create New</span>
+              <span className="xs:hidden">New</span>
             </button>
           </div>
 
           {/* Content */}
-          <div className="min-h-[400px]">
+          <div className="min-h-[300px] sm:min-h-[400px]">
             {activeTab === 'existing' ? (
               <div>
                 {/* Search Bar */}
-                <div className="mb-4 relative">
-                  <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${
+                <div className="mb-3 sm:mb-4 relative">
+                  <Search className={`absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 ${
                     isDarkMode ? 'text-gray-400' : 'text-gray-500'
                   }`} />
                   <input
@@ -176,7 +178,7 @@ function AddAgentToWorkflowModal() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search agents..."
-                    className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 transition-all outline-none ${
+                    className={`w-full pl-10 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border-2 transition-all outline-none text-sm sm:text-base ${
                       isDarkMode
                         ? 'bg-gray-800/50 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500'
                         : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-purple-500'
@@ -185,17 +187,17 @@ function AddAgentToWorkflowModal() {
                 </div>
 
                 {/* Agents List */}
-                <div className="space-y-3 max-h-[320px] overflow-y-auto custom-scrollbar">
+                <div className="space-y-2 sm:space-y-3 max-h-[240px] sm:max-h-[320px] overflow-y-auto custom-scrollbar">
                   {isLoadingAgents ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto"></div>
-                      <p className={`mt-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <div className="text-center py-6 sm:py-8">
+                      <div className="animate-spin w-6 h-6 sm:w-8 sm:h-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto"></div>
+                      <p className={`mt-3 sm:mt-4 text-sm sm:text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         Loading agents...
                       </p>
                     </div>
                   ) : filteredAgents.length === 0 ? (
-                    <div className="text-center py-12">
-                      <p className={`text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <div className="text-center py-8 sm:py-12">
+                      <p className={`text-base sm:text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         {searchQuery ? 'No agents found' : 'No agents available'}
                       </p>
                     </div>
@@ -204,7 +206,7 @@ function AddAgentToWorkflowModal() {
                       <button
                         key={agent.id}
                         onClick={() => setSelectedAgentId(agent.id)}
-                        className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                        className={`w-full p-3 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all text-left ${
                           selectedAgentId === agent.id
                             ? isDarkMode
                               ? 'border-purple-500 bg-purple-500/10'
@@ -214,28 +216,28 @@ function AddAgentToWorkflowModal() {
                               : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                         }`}
                       >
-                        <div className="flex items-start gap-3">
-                          <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center ${
+                        <div className="flex items-start gap-2 sm:gap-3">
+                          <div className={`flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center ${
                             isDarkMode
                               ? 'bg-gradient-to-br from-purple-500/20 to-pink-500/20'
                               : 'bg-purple-100 border border-purple-200'
                           }`}>
-                            <span className="text-2xl">🤖</span>
+                            <span className="text-xl sm:text-2xl">🤖</span>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className={`font-semibold mb-1 ${
+                            <h3 className={`font-semibold mb-0.5 sm:mb-1 text-sm sm:text-base ${
                               isDarkMode ? 'text-white' : 'text-gray-900'
                             }`}>
                               {agent.name}
                             </h3>
-                            <p className={`text-sm line-clamp-2 ${
+                            <p className={`text-xs sm:text-sm line-clamp-2 ${
                               isDarkMode ? 'text-gray-400' : 'text-gray-600'
                             }`}>
                               {agent.prompt}
                             </p>
                           </div>
                           {selectedAgentId === agent.id && (
-                            <ArrowRight className="flex-shrink-0 w-5 h-5 text-purple-500" />
+                            <ArrowRight className="flex-shrink-0 w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
                           )}
                         </div>
                       </button>
@@ -246,14 +248,14 @@ function AddAgentToWorkflowModal() {
             ) : (
               <div>
                 {/* Create New Agent Form */}
-                <div className={`border-2 rounded-2xl p-6 ${
+                <div className={`border-2 rounded-xl sm:rounded-2xl p-4 sm:p-6 ${
                   isDarkMode
                     ? 'border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-pink-500/10'
                     : 'border-purple-300 bg-gradient-to-br from-purple-50 to-pink-50'
                 }`}>
                   <label 
                     htmlFor="agent-prompt"
-                    className={`block text-sm font-medium mb-3 ${
+                    className={`block text-xs sm:text-sm font-medium mb-2 sm:mb-3 ${
                       isDarkMode ? 'text-gray-300' : 'text-gray-700'
                     }`}
                   >
@@ -264,15 +266,15 @@ function AddAgentToWorkflowModal() {
                     value={newAgentPrompt}
                     onChange={(e) => setNewAgentPrompt(e.target.value)}
                     placeholder="Describe what your agent should do..."
-                    rows={8}
-                    className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none resize-none ${
+                    rows={6}
+                    className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border-2 transition-all outline-none resize-none text-sm sm:text-base ${
                       isDarkMode
                         ? 'bg-gray-800/50 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500'
                         : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-purple-500'
                     }`}
                   />
-                  <div className="mt-4 flex items-center gap-2">
-                    <span className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                  <div className="mt-3 sm:mt-4 flex items-center gap-2">
+                    <span className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium ${
                       isDarkMode
                         ? 'bg-yellow-500/20 text-yellow-400'
                         : 'bg-yellow-100 text-yellow-700 border border-yellow-300'
@@ -286,11 +288,11 @@ function AddAgentToWorkflowModal() {
           </div>
 
           {/* Footer Buttons */}
-          <div className="flex gap-3 mt-6">
+          <div className="flex gap-2 sm:gap-3 mt-4 sm:mt-6">
             <button
               onClick={handleClose}
               disabled={isPending}
-              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all ${
+              className={`flex-1 py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg sm:rounded-xl font-medium transition-all text-sm sm:text-base ${
                 isDarkMode
                   ? 'bg-gray-800 hover:bg-gray-700 text-gray-300'
                   : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
@@ -304,17 +306,25 @@ function AddAgentToWorkflowModal() {
                 isPending || 
                 (activeTab === 'existing' ? !selectedAgentId : !newAgentPrompt.trim())
               }
-              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+              className={`flex-1 py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg sm:rounded-xl font-medium transition-all flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base ${
                 isPending || (activeTab === 'existing' ? !selectedAgentId : !newAgentPrompt.trim())
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg shadow-purple-500/50'
               }`}
             >
-              <ArrowRight className="w-5 h-5" />
-              {isPending 
-                ? (activeTab === 'new' ? 'Creating...' : 'Adding...') 
-                : (activeTab === 'new' ? 'Create' : 'Add Agent')
-              }
+              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden xs:inline">
+                {isPending 
+                  ? (activeTab === 'new' ? 'Creating...' : 'Adding...') 
+                  : (activeTab === 'new' ? 'Create Agent' : 'Add Agent')
+                }
+              </span>
+              <span className="xs:hidden">
+                {isPending 
+                  ? '...' 
+                  : (activeTab === 'new' ? 'Create' : 'Add')
+                }
+              </span>
             </button>
           </div>
         </div>

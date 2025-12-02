@@ -10,13 +10,14 @@ import {
   TriggersStep,
   ModalFooter
 } from './components';
+import { useGetConnectionsForDisplay } from '../../../integrations/hooks/useGetConnectionsForDisplay';
+import { useCreateManualAgent } from '../../../agents/hooks';
 
 interface ManualAgentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: ManualAgentData) => void;
+  onSubmit?: (data: ManualAgentData) => void;
   initialPrompt?: string;
-  isCreating?: boolean;
 }
 
 export interface ManualAgentData {
@@ -34,11 +35,11 @@ function ManualAgentModal({
   isOpen, 
   onClose, 
   onSubmit, 
-  initialPrompt = '',
-  isCreating = false 
+  initialPrompt = ''
 }: ManualAgentModalProps) {
   const { isDarkMode } = useDarkModeStore();
   const [currentStep, setCurrentStep] = useState<Step>(1);
+  const { createManualAgent, isCreating } = useCreateManualAgent();
   
   // Form data
   const [name, setName] = useState('');
@@ -51,23 +52,21 @@ function ManualAgentModal({
   const [searchTerm, setSearchTerm] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // TODO: Fetch available tools when needed
-  const availableTools: any[] = [];
-  const isLoadingTools = false;
+  const { connectionsForDisplay, isLoading: isLoadingTools } = useGetConnectionsForDisplay();
 
   // Filter tools based on search
   const filteredTools = useMemo(() => {
-    if (!availableTools || availableTools.length === 0) return [];
-    if (!searchTerm.trim()) return availableTools;
+    if (!connectionsForDisplay || connectionsForDisplay.length === 0) return [];
+    
+    if (!searchTerm.trim()) return connectionsForDisplay;
     
     const search = searchTerm.toLowerCase();
-    return availableTools.filter(tool => 
-      tool.name.toLowerCase().includes(search) ||
-      tool.description.toLowerCase().includes(search) ||
+    return connectionsForDisplay.filter((tool: any) => 
+      tool.name?.toLowerCase().includes(search) ||
+      tool.description?.toLowerCase().includes(search) ||
       tool.category?.toLowerCase().includes(search)
     );
-  }, [availableTools, searchTerm]);
+  }, [connectionsForDisplay, searchTerm]);
 
   // Update prompt when modal opens with new initialPrompt
   useEffect(() => {
@@ -86,11 +85,16 @@ function ManualAgentModal({
   ];
 
   const toggleTool = (toolName: string) => {
-    setSelectedTools(prev => 
-      prev.includes(toolName) 
+    console.log('🔧 toggleTool called with:', toolName);
+    setSelectedTools(prev => {
+      console.log('🔧 Previous selectedTools:', prev);
+      const isSelected = prev.includes(toolName);
+      const newSelection = isSelected 
         ? prev.filter(t => t !== toolName)
-        : [...prev, toolName]
-    );
+        : [...prev, toolName];
+      console.log('🔧 New selectedTools:', newSelection);
+      return newSelection;
+    });
   };
 
   // Map icon from integrations format
@@ -162,14 +166,33 @@ function ManualAgentModal({
       return;
     }
     
-    onSubmit({
+    const agentData = {
       name,
       prompt,
       avatar,
-      tools: selectedTools,
+      app_connections: selectedTools,
+      agent_tools: [],
       files,
-      triggers,
-    });
+    };
+
+    // אם יש callback מותאם אישית, נשתמש בו
+    if (onSubmit) {
+      onSubmit({
+        name,
+        prompt,
+        avatar,
+        tools: selectedTools,
+        files,
+        triggers,
+      });
+    } else {
+      // אחרת נשתמש ב-hook המובנה
+      createManualAgent(agentData, {
+        onSuccess: () => {
+          onClose();
+        },
+      });
+    }
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {

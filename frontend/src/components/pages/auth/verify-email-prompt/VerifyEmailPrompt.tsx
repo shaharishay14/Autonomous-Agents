@@ -85,24 +85,26 @@ function VerifyEmailPrompt() {
             </p>
 
             {/* Email Input (for manual entry if needed) */}
-            <div className="mb-6">
-              <label className={`block text-sm font-medium mb-2 ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-700'
-              }`}>
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                className={`w-full px-4 py-3 rounded-lg border transition-all duration-200 ${
-                  isDarkMode
-                    ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20'
-                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20'
-                }`}
-              />
-            </div>
+            {!email && (
+              <div className="mb-6">
+                <label className={`block text-sm font-medium mb-2 ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className={`w-full px-4 py-3 rounded-lg border transition-all duration-200 ${
+                    isDarkMode
+                      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20'
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20'
+                  }`}
+                />
+              </div>
+            )}
 
             {/* Resend Button */}
             <button

@@ -6,13 +6,6 @@ interface SidebarToggleButtonProps {
 export const SidebarToggleButton = ({ isDarkMode, onToggle }: SidebarToggleButtonProps) => {
   return (
     <div className="relative w-20 flex justify-center">
-      {/* Background layer */}
-      <div className={`absolute inset-0 rounded-xl ${
-        isDarkMode
-          ? 'bg-gray-900'
-          : 'bg-white'
-      }`} style={{ transform: 'scale(1.1)' }} />
-      
       {/* Button */}
       <button
         onClick={onToggle}

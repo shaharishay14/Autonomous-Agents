@@ -3,7 +3,8 @@ import useDarkModeStore from '../../../../../../../store/darkmode.store';
 
 interface Tool {
   name: string;
-  tool_name: string;
+  tool_name?: string;
+  slug?: string;
   description: string;
   category: string;
 }
@@ -92,12 +93,24 @@ function ToolSelectionStep({
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {filteredTools.map((tool) => {
-              const isSelected = selectedTools.includes(tool.tool_name);
+              // נשתמש ב-slug אם קיים, אחרת ב-tool_name, אחרת ב-name
+              const toolId = tool.slug || tool.tool_name || tool.name;
+              console.log('🛠️ Tool in map:', { 
+                name: tool.name, 
+                tool_name: tool.tool_name, 
+                slug: tool.slug,
+                toolId: toolId,
+                fullTool: tool 
+              });
+              const isSelected = selectedTools.includes(toolId);
               
               return (
                 <button
-                  key={tool.tool_name}
-                  onClick={() => toggleTool(tool.tool_name)}
+                  key={toolId}
+                  onClick={() => {
+                    console.log('🖱️ Button clicked for tool:', toolId);
+                    toggleTool(toolId);
+                  }}
                   className={`p-4 rounded-xl border-2 text-left transition-all ${
                     isSelected
                       ? isDarkMode

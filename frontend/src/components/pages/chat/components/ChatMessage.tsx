@@ -30,7 +30,7 @@ export const ChatMessage = ({ message, isDarkMode }: ChatMessageProps) => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className={`flex gap-3 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+      <div className={`flex gap-3 max-w-full md:max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
         {/* Avatar */}
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
           message.role === 'user'

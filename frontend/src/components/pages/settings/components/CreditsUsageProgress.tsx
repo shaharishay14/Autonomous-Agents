@@ -11,18 +11,18 @@ export const CreditsUsageProgress = ({ creditsUsed, totalCredits, isLoading }: C
   const totalCreditsSum = totalCredits + creditsUsed
 
   return (
-    <div className={`p-5 rounded-xl border ${
+    <div className={`p-3 sm:p-4 md:p-5 rounded-lg sm:rounded-xl border ${
       isDarkMode 
         ? 'bg-gray-800/50 border-gray-700' 
         : 'bg-gray-50 border-gray-200'
     }`}>
-      <div className="flex items-center justify-between mb-3">
-        <p className={`text-sm font-medium ${
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+        <p className={`text-xs sm:text-sm font-medium ${
           isDarkMode ? 'text-gray-300' : 'text-gray-700'
         }`}>
           Credits Used This Period
         </p>
-        <p className={`text-2xl font-bold ${
+        <p className={`text-xl sm:text-2xl font-bold ${
           isDarkMode ? 'text-white' : 'text-gray-900'
         }`}>
           {isLoading ? '...' : `${creditsUsed} / ${totalCreditsSum}`}

@@ -33,3 +33,8 @@ export const fetchToolCapabilities = async (toolName: string): Promise<ToolCapab
   });
   return response.data;
 };
+
+export const fetchConnectionsForDisplay = async () => {
+  const response = await api.get('/connections/connections_for_display/');
+  return response.data;
+};

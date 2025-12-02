@@ -62,10 +62,10 @@ function PublicChatInput({
   const isHebrew = useMemo(() => isHebrewText(messageText), [messageText]);
 
   return (
-    <div className={`border-t backdrop-blur-sm transition-all duration-300 ${
+    <div style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} className={`border-t backdrop-blur-sm transition-all duration-300 ${
       showSuggestions && suggestions.length > 0 ? 'p-6' : 'p-4'
-    } border-white/[0.08] bg-gradient-to-r from-gray-900/50 to-gray-900/80`}>
-      <div className="w-[90%] mx-auto">
+    } bg-gradient-to-r from-gray-900/50 to-gray-900/80`}>
+      <div className="w-full mx-auto">
         {/* Suggested Prompts */}
         {showSuggestions && suggestions.length > 0 && (
           <div className="mb-4 relative animate-in fade-in slide-in-from-top-2 duration-300">
@@ -80,12 +80,13 @@ function PublicChatInput({
               </svg>
             </button>
 
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center">
               {suggestions.map((prompt, index) => (
                 <button
                   key={index}
                   onClick={() => onMessageChange(prompt)}
-                  className="px-4 py-2 rounded-xl text-sm transition-all duration-200 hover:scale-105 bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/30 hover:to-pink-500/30 border border-purple-500/30 text-gray-200"
+                  style={{ borderColor: 'rgba(168, 85, 247, 0.3)' }}
+                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm transition-all duration-200 hover:scale-105 bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/30 hover:to-pink-500/30 border text-gray-200"
                 >
                   {prompt}
                 </button>
@@ -94,14 +95,15 @@ function PublicChatInput({
           </div>
         )}
 
-        <div className="rounded-2xl p-3 border backdrop-blur-sm bg-white/[0.03] border-white/[0.08]">
+        <div style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} className="rounded-2xl p-3 border backdrop-blur-sm bg-white/[0.03]">
           {/* Attached Files Display */}
           {attachedFiles.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2">
               {attachedFiles.map((file, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-white/[0.05] border-white/[0.1] text-gray-300"
+                  style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-white/[0.05] text-gray-300"
                 >
                   <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />

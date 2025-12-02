@@ -5,7 +5,6 @@ export interface User {
   username: string
   email: string
   id:string;
-  is_verified?: boolean;
 }
 
 interface UserStore {

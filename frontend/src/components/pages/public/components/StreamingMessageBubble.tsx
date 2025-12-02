@@ -33,14 +33,14 @@ export const StreamingMessageBubble = ({ content }: StreamingMessageBubbleProps)
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="flex gap-3 max-w-[80%]">
+      <div className="flex gap-3 max-w-full md:max-w-[80%]">
         {/* Avatar */}
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30">
+        <div style={{ borderColor: 'rgba(168, 85, 247, 0.3)' }} className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 border">
           <span className="text-sm">🤖</span>
         </div>
 
         {/* Message Content */}
-        <div className="rounded-2xl px-4 py-3 relative bg-white/[0.05] border border-white/[0.1]">
+        <div style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} className="rounded-2xl px-4 py-3 relative bg-white/[0.05] border">
           <div 
             dir={isHebrew ? 'rtl' : 'ltr'}
             className="text-sm prose prose-sm max-w-none prose-invert [&>*]:text-gray-200 [&_h1]:text-white [&_h2]:text-white [&_h3]:text-white [&_h4]:text-white [&_strong]:text-gray-100 [&_code]:text-purple-300 [&_p]:text-sm"

@@ -57,13 +57,15 @@ function Chat() {
         />
         
         {/* Chat Area */}
-        <ChatArea 
-          agentId={id || ''}
-          agent={agent}
-          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          isSidebarOpen={isSidebarOpen}
-          suggestedPrompts={suggestedPrompts}
-        />
+        <div className={`flex-1 ${isSidebarOpen ? 'hidden md:flex' : 'flex'}`}>
+          <ChatArea 
+            agentId={id || ''}
+            agent={agent}
+            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+            isSidebarOpen={isSidebarOpen}
+            suggestedPrompts={suggestedPrompts}
+          />
+        </div>
       </ChatLayout>
 
       {/* Create Trigger Modal - Positioned at Chat level for full screen coverage */}

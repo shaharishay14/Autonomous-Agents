@@ -8,6 +8,8 @@ const iconMap: Record<string, string> = {
   'Google Docs': '📄',
   'Google Sheets': '📊',
   'Google Calendar': '📅',
+  'Google Meet': '📹',
+  'Google Slides': '📊',
   'Slack': '#️⃣',
   'Twitter': '🐦',
   'X': '🐦',
@@ -19,6 +21,7 @@ const iconMap: Record<string, string> = {
   'Discord': '💬',
   'Telegram': '✈️',
   'WhatsApp': '📱',
+  'Whatsapp': '📱',
   'Zoom': '📹',
   'Trello': '📌',
   'Asana': '✓',
@@ -32,6 +35,15 @@ const iconMap: Record<string, string> = {
   'Mailchimp': '📧',
   'HubSpot': '🚀',
   'Salesforce': '☁️',
+  'Airtable': '📋',
+  'Canva': '🎨',
+  'Clickup': '✅',
+  'ClickUp': '✅',
+  'Facebook': '👥',
+  'Instagram': '📷',
+  'Monday': '📊',
+  'Outlook': '📧',
+  'Todoist': '☑️',
 };
 
 // מיפוי אייקונים לפי קטגוריה (fallback)
@@ -76,11 +88,11 @@ const mapToolToIntegration = (tool: AvailableTool): Integration => {
   return {
     id,
     name: tool.name,
-    slug: tool.tool_name,
+    slug: tool.tool_name || '',
     description: tool.description,
     category: mapCategory(tool.category),
     icon,
-    isConnected: tool.is_active,
+    isConnected: tool.is_active ?? false,
     connectionId: tool.connection_id,
   };
 };

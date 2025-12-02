@@ -14,7 +14,6 @@ function Integrations() {
   
   // שליפת כלים זמינים מהשרת והמרה לאינטגרציות
   const { integrations, isLoading, isError, error } = useAvailableTools();
-  
   // חיבור כלי
   const { connectTool, isConnecting, connectingToolName } = useConnectTool(integrations);
   

@@ -70,26 +70,6 @@ export const verifyEmail = async (data: VerifyEmailFormData): Promise<VerifyEmai
   return response.data
 }
 
-export interface VerifyEmailWithTokenData {
-  userId: string
-  token: string
-}
-
-export interface VerifyEmailWithTokenResponse {
-  detail: string
-  user: {
-    id: string
-    username: string
-    email: string
-    is_verified: boolean
-  }
-}
-
-export const verifyEmailWithToken = async (data: VerifyEmailWithTokenData): Promise<VerifyEmailWithTokenResponse> => {
-  const response = await api.post<VerifyEmailWithTokenResponse>('/auth/verify/', data)
-  return response.data
-}
-
 export const googleAuth = async (code: string): Promise<ProviderAuthResponse> => {
   const response = await api.post<ProviderAuthResponse>('/auth/google/', { code })
   return response.data
@@ -118,8 +98,8 @@ export interface ResendVerificationResponse {
   detail: string
 }
 
-export const resendVerificationEmail = async (email: string): Promise<ResendVerificationResponse> => {
-  const response = await api.post<ResendVerificationResponse>('/auth/email/verify/resend/public/', { email })
+export const resendVerificationEmail = async (): Promise<ResendVerificationResponse> => {
+  const response = await api.post<ResendVerificationResponse>('/auth/email/verify/resend/')
   return response.data
 }
 

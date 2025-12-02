@@ -4,7 +4,6 @@ import Nav from "../layout/Nav";
 import Chatbot from "../layout/Chatbot";
 import useDarkMode from "../shared/hooks/useDarkMode";
 import useLastVisitedPath from "../shared/hooks/useLastVisitedPath";
-import ParticlesBackground from "../shared/ParticlesBackground";
 import { useMe } from "../pages/auth/hooks/useMe";
 import { useRefreshToken } from "../pages/auth/hooks/useRefreshToken";
 import Layout from "../layout/Layout";
@@ -22,7 +21,6 @@ function Root() {
 
     return (
         <Layout>
-            <ParticlesBackground />
             <Nav />
             <Suspense fallback={<PageLoader />}>
                 <Outlet />

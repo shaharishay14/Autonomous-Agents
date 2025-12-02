@@ -71,7 +71,7 @@ function Workflows() {
           isOpen={isSidebarOpen}
         />
         
-        <div className="flex-1 flex flex-col relative">
+        <div className={`flex-1 flex flex-col relative ${isSidebarOpen ? 'hidden md:flex' : 'flex'}`}>
           {!isSidebarOpen && (
             <WorkflowSidebarToggleButton 
               isDarkMode={isDarkMode}

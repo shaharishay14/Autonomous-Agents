@@ -7,17 +7,16 @@ import useDarkModeStore from '../../../../../store/darkmode.store'
 
 function VerifyEmail() {
   const [searchParams] = useSearchParams()
-  const userId = searchParams.get('userId') || ''
-  const token = searchParams.get('token') || ''
+  const key = searchParams.get('key') || ''
   const { isDarkMode } = useDarkModeStore()
 
-  const { verifyWithToken, isLoading, isSuccess, isError } = useVerifyEmail()
+  const { verifyEmailWithKey, isLoading, isSuccess, isError } = useVerifyEmail()
 
   useEffect(() => {
-    if (userId && token) {
-      verifyWithToken(userId, token)
+    if (key) {
+      verifyEmailWithKey(key)
     }
-  }, [userId, token, verifyWithToken])
+  }, [key, verifyEmailWithKey])
 
   return (
     <div className={`min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 ${
@@ -91,7 +90,7 @@ function VerifyEmail() {
             </div>
           )}
 
-          {(!userId || !token) && !isLoading && (
+          {!key && !isLoading && (
             <div className="text-center py-8">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
                 isDarkMode ? 'bg-gray-500/10' : 'bg-gray-200'
@@ -102,7 +101,7 @@ function VerifyEmail() {
               </div>
               <h3 className={`text-xl font-semibold mb-2 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}>Invalid verification link</h3>
+              }`}>No verification key</h3>
               <p className={`text-sm mb-6 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>

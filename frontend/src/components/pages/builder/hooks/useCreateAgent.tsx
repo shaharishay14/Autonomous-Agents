@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-// import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { createAgent } from '../requests';
 import type { CreateAgentPayload, CreateAgentResponse } from '../types';
@@ -10,32 +10,36 @@ interface ErrorResponse {
 }
 
 export const useCreateAgent = () => {
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const mutation = useMutation<CreateAgentResponse, AxiosError<ErrorResponse>, CreateAgentPayload>({
     mutationFn: createAgent,
+    onMutate: () => {
+      // Navigate to loading page when mutation starts
+      navigate('/agent-loading');
+    },
     onSuccess: (data) => {
-      console.log('✅ Agent נוצר בהצלחה:', data);
-      toast.success('האייג\'נט נוצר בהצלחה!');
-      
-      // ניווט לדף המתאים (למשל agents או chat)
-      // navigate('/agents');
-      // או
-      // navigate(`/chat/${data.id}`);
+      console.log('✅ Agent created successfully:', data);
+      // Store agent data in sessionStorage for the summary page
+      sessionStorage.setItem('newAgentData', JSON.stringify(data));
+      // Navigate to summary page
+      navigate('/agent-summary');
     },
     onError: (error) => {
-      const message = error.response?.data?.message || error.message || 'שגיאה ביצירת האייג\'נט';
-      console.error('❌ שגיאה ביצירת agent:', message);
+      const message = error.response?.data?.message || error.message || 'Failed to create agent';
+      console.error('❌ Error creating agent:', message);
       toast.error(message);
+      // Navigate back to builder on error
+      navigate('/builder');
     },
   });
 
-  const handleCreate = (prompt: string) => {
-    if (!prompt.trim()) {
+  const handleCreate = (payload: CreateAgentPayload) => {
+    if (!payload.prompt.trim()) {
       return;
     }
     
-    mutation.mutate({ prompt });
+    mutation.mutate(payload);
   };
 
   return {

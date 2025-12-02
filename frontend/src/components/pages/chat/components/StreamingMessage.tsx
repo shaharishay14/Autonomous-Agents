@@ -29,7 +29,7 @@ export const StreamingMessage = ({ isDarkMode, content }: StreamingMessageProps)
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="flex gap-3 max-w-[80%]">
+      <div className="flex gap-3 max-w-full md:max-w-[80%]">
         {/* Avatar */}
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
           isDarkMode

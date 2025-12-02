@@ -40,22 +40,26 @@ function MessageBubble({ message }: MessageBubbleProps) {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className={`flex gap-3 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+      <div className={`flex gap-3 max-w-full md:max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
         {/* Avatar */}
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-          message.role === 'user'
-            ? 'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30'
-            : 'bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30'
-        }`}>
+        <div 
+          style={{ borderColor: message.role === 'user' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(168, 85, 247, 0.3)' }}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border ${
+            message.role === 'user'
+              ? 'bg-gradient-to-br from-blue-500/20 to-cyan-500/20'
+              : 'bg-gradient-to-br from-purple-500/20 to-pink-500/20'
+          }`}>
           <span className="text-sm">{message.role === 'user' ? '👤' : '🤖'}</span>
         </div>
 
         {/* Message Content */}
-        <div className={`rounded-2xl px-4 py-3 relative ${
-          message.role === 'user'
-            ? 'bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border border-blue-500/30'
-            : 'bg-white/[0.05] border border-white/[0.1]'
-        }`}>
+        <div 
+          style={{ borderColor: message.role === 'user' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(255, 255, 255, 0.1)' }}
+          className={`rounded-2xl px-4 py-3 relative border ${
+            message.role === 'user'
+              ? 'bg-gradient-to-br from-blue-600/20 to-cyan-600/20'
+              : 'bg-white/[0.05]'
+          }`}>
           <div 
             dir={isHebrew ? 'rtl' : 'ltr'}
             className={`text-sm prose prose-sm max-w-none ${

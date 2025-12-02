@@ -28,11 +28,13 @@ function WorkflowSidebar({
   
   return (
     <div className={`border-r backdrop-blur-sm flex flex-col transition-all duration-300 ease-in-out overflow-hidden ${
-      isOpen ? 'w-[380px]' : 'w-0 border-r-0'
+      isOpen ? 'w-full md:w-[380px]' : 'w-0 border-r-0'
     } ${
       isDarkMode
         ? 'border-white/[0.08] bg-gradient-to-b from-gray-900/50 to-gray-900/80'
         : 'border-purple-300/50 bg-white/80'
+    } ${
+      isOpen ? 'absolute md:relative inset-0 z-50 md:z-auto' : ''
     }`}>
       {/* Header */}
       <div className={`p-6 border-b ${

@@ -1,6 +1,8 @@
+import { formatAvatarUrl } from '../../chat/utils';
+
 interface Agent {
   name: string;
-  avatar?: string | null;
+  avatar_base64?: string | null;
 }
 
 interface PublicChatWelcomeProps {
@@ -8,11 +10,14 @@ interface PublicChatWelcomeProps {
 }
 
 function PublicChatWelcome({ agent }: PublicChatWelcomeProps) {
+  const avatarUrl = formatAvatarUrl(agent.avatar_base64);
   return (
     <div className="text-center py-12">
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl mx-auto mb-4 bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30">
-        {'🤖'}
-      </div>
+      <img 
+        src={avatarUrl || "/assets/agent.png"} 
+        alt={agent?.name || "Agent"} 
+        className="w-16 h-16 mx-auto mb-4 object-cover"
+      />
       <h2 className="text-2xl font-bold mb-2 text-white">
         {agent?.name || 'Agent'}
       </h2>

@@ -8,13 +8,6 @@ interface WorkflowSidebarToggleButtonProps {
 export const WorkflowSidebarToggleButton = ({ isDarkMode, onToggle }: WorkflowSidebarToggleButtonProps) => {
   return (
     <div className="absolute top-4 left-4 z-50">
-      {/* Background layer */}
-      <div className={`absolute inset-0 rounded-xl ${
-        isDarkMode
-          ? 'bg-gray-900'
-          : 'bg-white'
-      }`} style={{ transform: 'scale(1.1)' }} />
-      
       {/* Button */}
       <button
         onClick={onToggle}
