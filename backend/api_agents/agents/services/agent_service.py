@@ -746,8 +746,18 @@ class AgentService:
         Returns a list of connection objects from Composio.
         """
         try:
-            # Get all connections for this user
-            response = self.composio_client.connected_accounts.list(entity_id=entity_id)
+            # Try different API parameter variations (Composio API is inconsistent)
+            response = None
+            try:
+                # Try with no parameters first (gets all for this API key)
+                response = self.composio_client.connected_accounts.list()
+            except Exception as e1:
+                try:
+                    # Try with user_id parameter
+                    response = self.composio_client.connected_accounts.list(user_id=entity_id)
+                except Exception as e2:
+                    print(f"❌ Failed to list connections: {e1}, {e2}")
+                    return []
 
             # Extract connections from response
             connections = None
@@ -759,11 +769,28 @@ class AgentService:
                 connections = list(response)
 
             if not connections:
+                print(f"ℹ️  No connections found in Composio response")
                 return []
 
-            # Filter for the specific tool
+            # Filter for the specific user and tool
             tool_connections = []
             for conn in connections:
+                # Check if connection belongs to this user
+                conn_entity = None
+                if hasattr(conn, 'entityId'):
+                    conn_entity = conn.entityId
+                elif hasattr(conn, 'entity_id'):
+                    conn_entity = conn.entity_id
+                elif hasattr(conn, 'userId'):
+                    conn_entity = conn.userId
+                elif hasattr(conn, 'user_id'):
+                    conn_entity = conn.user_id
+
+                # Skip if not this user's connection
+                if conn_entity and conn_entity != entity_id:
+                    continue
+
+                # Check if this is the tool we're looking for
                 conn_app = None
                 if hasattr(conn, 'toolkit') and conn.toolkit:
                     conn_app = getattr(conn.toolkit, 'slug', None)
@@ -775,10 +802,13 @@ class AgentService:
                 if conn_app and conn_app.upper() == tool_name.upper():
                     tool_connections.append(conn)
 
+            print(f"ℹ️  Found {len(tool_connections)} connection(s) for {tool_name}")
             return tool_connections
 
         except Exception as e:
             print(f"❌ Error fetching Composio connections: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     def _try_adopt_connection(self, conn, tool_name: str) -> bool:
