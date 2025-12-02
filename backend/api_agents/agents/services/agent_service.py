@@ -753,7 +753,21 @@ class AgentService:
                 if conn_status:
                     status_str = str(conn_status).upper()
                     if status_str not in ['ACTIVE', 'ENABLED']:
-                        print(f"⏭️  Skipping {tool_name_debug} - status: {status_str} (expected ACTIVE or ENABLED)")
+                        # Delete old INITIATED connections (ghost connections from incomplete OAuth)
+                        if status_str == 'INITIATED':
+                            try:
+                                connection_id = None
+                                if hasattr(conn, 'id'): connection_id = conn.id
+                                elif hasattr(conn, 'connectionId'): connection_id = conn.connectionId
+
+                                if connection_id:
+                                    print(f"🗑️  Cleaning up INITIATED connection: {tool_name_debug} (ID: {connection_id})")
+                                    self.composio_client.connected_accounts.delete(connection_id=connection_id)
+                                    print(f"✅ Deleted ghost connection: {tool_name_debug}")
+                            except Exception as delete_error:
+                                print(f"❌ Failed to delete ghost connection {tool_name_debug}: {delete_error}")
+                        else:
+                            print(f"⏭️  Skipping {tool_name_debug} - status: {status_str} (expected ACTIVE or ENABLED)")
                         continue
                     else:
                         print(f"✅ Found {tool_name_debug} with status: {status_str}")
