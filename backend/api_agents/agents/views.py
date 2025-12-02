@@ -566,7 +566,7 @@ class AgentViewSet(viewsets.ModelViewSet):
 
     def _get_random_default_avatar(self):
         """
-        Randomly selects a default avatar image from static/default_avatars/ folder.
+        Randomly selects a default avatar image from static/default_avatars_clouds/ folder.
         Returns tuple: (binary_data, filename, mime_type) or (None, None, None) if no images found.
         """
         import os
@@ -575,7 +575,7 @@ class AgentViewSet(viewsets.ModelViewSet):
         from django.conf import settings
 
         # Path to default avatars folder
-        default_avatars_path = os.path.join(settings.BASE_DIR, 'static', 'default_avatars')
+        default_avatars_path = os.path.join(settings.BASE_DIR, 'static', 'default_avatars_clouds')
 
         try:
             # Check if directory exists
