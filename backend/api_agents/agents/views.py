@@ -739,17 +739,9 @@ class AgentViewSet(viewsets.ModelViewSet):
         prompt = serializer.validated_data.get('prompt', '')
         name = serializer.validated_data.get('name', '').strip()
 
-        # Get all of user's active connections
-        from api_agents.tools.models import ComposioConnection
-        user_connections = list(
-            ComposioConnection.objects.filter(
-                user=self.request.user,
-                is_active=True,
-                deleted_at__isnull=True
-            ).values_list('tool_name', flat=True)
-        )
-        app_connections = user_connections if user_connections else []
-
+        # Only use app_connections if explicitly provided in request
+        # By default, agents start with no tools connected
+        app_connections = serializer.validated_data.get('app_connections', [])
         agent_tools = serializer.validated_data.get('agent_tools', [])
 
         # Determine mode: Manual (name provided) or YOLO (no name)
