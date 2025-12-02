@@ -931,7 +931,7 @@ class AgentViewSet(viewsets.ModelViewSet):
         1. Validates message is provided
         2. Processes file attachments (if any)
         3. Saves user message to database
-        4. Builds chat history (last 6 messages)
+        4. Builds chat history (last 10 messages for better context & tool memory)
         5. Dynamically selects tools based on prompt and history
         6. Executes chat with streaming callbacks
         7. Saves assistant response
@@ -1044,12 +1044,12 @@ class AgentViewSet(viewsets.ModelViewSet):
 
                 # 3. Build the rich chat history (for agent memory)
                 # For ephemeral mode: use empty history (stateless)
-                # For persistent mode: use last 6 messages from database
+                # For persistent mode: use last 10 messages from database (increased for better tool memory)
                 chat_history_formatted = []
 
                 if not is_ephemeral:
                     print("Building rich chat history from database...")
-                    chat_history_qs = ChatMessage.objects.filter(agent=agent).order_by('-created_at')[:6]
+                    chat_history_qs = ChatMessage.objects.filter(agent=agent).order_by('-created_at')[:10]
                     chat_history = await sync_to_async(list)(chat_history_qs)
                     chat_history.reverse()  # Put in chronological order (oldest first)
 

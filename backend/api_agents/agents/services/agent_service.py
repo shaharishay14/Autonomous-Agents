@@ -231,7 +231,7 @@ class AgentService:
 
             enhanced_instructions = agent_model.prompt
 
-            # === AUTONOMY ENHANCEMENT ===
+            # === AUTONOMY & TOOL EXECUTION ENHANCEMENT ===
             autonomy_instructions = (
                 "\n\n--- AUTONOMOUS OPERATION MODE ---\n"
                 "You are an autonomous AI assistant. When the user requests an action:\n"
@@ -242,6 +242,28 @@ class AgentService:
                 "5. After completing the action, provide a brief confirmation of what was done\n"
                 "6. If an error occurs, explain what happened and suggest a solution\n"
                 "7. Work efficiently - complete multi-step tasks in sequence without pausing for approval\n"
+                "\n"
+                "--- CRITICAL: TOOL USAGE vs TEXT SIMULATION ---\n"
+                "**YOU MUST USE TOOLS, NOT SIMULATE ACTIONS IN TEXT**\n"
+                "When you have a tool available for a task, you MUST call that tool.\n"
+                "DO NOT write simulated responses like:\n"
+                "  ❌ 'I'll send an email to user@example.com with subject...'\n"
+                "  ❌ 'Here's the email I would send: ...'\n"
+                "  ❌ 'I can help you send that email. The email would say...'\n"
+                "\n"
+                "INSTEAD, you MUST:\n"
+                "  ✅ Call GMAIL_SEND_EMAIL immediately with the parameters\n"
+                "  ✅ Execute the tool function without describing it first\n"
+                "  ✅ Let the tool output confirm the action was completed\n"
+                "\n"
+                "**Examples of CORRECT behavior:**\n"
+                "User: 'Send an email to john@example.com saying hello'\n"
+                "You: [Calls GMAIL_SEND_EMAIL tool with to='john@example.com', body='Hello'] → 'Email sent successfully to john@example.com'\n"
+                "\n"
+                "User: 'Search my drive for project files'\n"
+                "You: [Calls GOOGLEDRIVE_FIND_FILE tool with query='project'] → 'Found 3 files: ...'\n"
+                "\n"
+                "**REMEMBER:** If you have the tool, USE IT. Never simulate or describe the action.\n"
             )
             enhanced_instructions += autonomy_instructions
 
