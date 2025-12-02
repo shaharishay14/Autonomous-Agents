@@ -373,6 +373,16 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                 if deleted_count > 0:
                     print(f"🗑️  Cleaned up {deleted_count} old soft-deleted connection(s)")
 
+                # Cleanup: Delete inactive connections (is_active=False)
+                # These are connections that were marked inactive because they're no longer in Composio
+                inactive_deleted = ComposioConnection.objects.filter(
+                    user=request.user,
+                    is_active=False,
+                    deleted_at__isnull=True  # Only clean up connections that weren't manually deleted
+                ).delete()[0]
+                if inactive_deleted > 0:
+                    print(f"🗑️  Cleaned up {inactive_deleted} inactive connection(s)")
+
                 # Build a map of tool_name -> connection info (is_active, connection_id)
                 # Exclude soft-deleted connections from the active list
                 connections = ComposioConnection.objects.filter(
