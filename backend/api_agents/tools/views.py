@@ -384,6 +384,7 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                     print(f"🗑️  Cleaned up {inactive_deleted} inactive connection(s)")
 
                 # Cleanup: Delete dangling connections in Composio
+                print(f"🔍 Checking for dangling Composio connections...")
                 # Get active connections from database (our source of truth)
                 db_active_connections = set(
                     ComposioConnection.objects.filter(
@@ -392,6 +393,7 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                         deleted_at__isnull=True
                     ).values_list('tool_name', flat=True)
                 )
+                print(f"📊 Active connections in database: {db_active_connections}")
 
                 # Get ALL connections from Composio for this user (including non-ACTIVE ones)
                 try:
@@ -438,6 +440,8 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
 
                     if dangling_deleted > 0:
                         print(f"🗑️  Cleaned up {dangling_deleted} dangling Composio connection(s)")
+                    else:
+                        print(f"✅ No dangling connections found - Composio and database are in sync")
 
                 except Exception as e:
                     print(f"⚠️  Could not clean up dangling connections: {e}")
