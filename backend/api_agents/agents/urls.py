@@ -11,5 +11,7 @@ router.register(r'templates', AgentTemplateViewSet, basename='agent-template')
 router.register(r'', AgentViewSet, basename='agent')
 
 urlpatterns = [
+    # Custom route for public agent endpoint: /api/agents/public/{id}/
+    path('public/<uuid:pk>/', AgentViewSet.as_view({'get': 'public'}), name='agent-public'),
     path('', include(router.urls)),
 ]
