@@ -55,9 +55,6 @@ class AgentSerializer(serializers.ModelSerializer):
     avatar = serializers.ImageField(write_only=True, required=False, help_text="Avatar image file (JPG or PNG, max 5MB)")
     avatar_base64 = serializers.SerializerMethodField(help_text="Base64-encoded avatar image for display (read-only)")
 
-    # Make 'tools' read-only, as it's set by the backend
-    tools = serializers.JSONField(read_only=True)
-
     # 'app_connections' handles both JSON string (multipart/form-data) and array (application/json)
     # Use FlexibleListField to parse JSON strings from multipart data
     app_connections = FlexibleListField(
@@ -85,7 +82,7 @@ class AgentSerializer(serializers.ModelSerializer):
         fields = [
             'name', 'prompt', 'avatar_base64', 'app_connections', 'agent_tools',
             'missing_connections', 'created_at', 'id', 'template_id',
-            'user', 'tools', 'updated_at', 'message_count', 'avatar'
+            'user', 'updated_at', 'message_count', 'avatar'
         ]
         read_only_fields = ['created_at', 'updated_at']
 
