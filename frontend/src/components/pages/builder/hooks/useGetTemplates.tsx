@@ -14,7 +14,7 @@ export const useGetTemplates = () => {
   });
 
   return {
-    templates: query.data,
+    templates: query.data || [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,

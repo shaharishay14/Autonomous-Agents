@@ -46,7 +46,13 @@ export const createAgent = async (payload: CreateAgentPayload): Promise<CreateAg
 };
 
 export const getTemplates = async (): Promise<any> => {
-  const response = await api.get('/agents/templates/');
-  return response.data;
+  try {
+    const response = await api.get('/agents/templates/');
+    // וידוא שהתשובה היא array, אחרת נחזיר array ריק
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error('Error fetching templates:', error);
+    return [];
+  }
 };
 

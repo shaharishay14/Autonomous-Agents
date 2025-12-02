@@ -9,9 +9,10 @@ import type { ManualAgentData } from './modal';
 interface BuilderInputProps {
   prompt: string;
   setPrompt: (prompt: string) => void;
+  templateId?: string;
 }
 
-function BuilderInput({ prompt, setPrompt }: BuilderInputProps) {
+function BuilderInput({ prompt, setPrompt, templateId }: BuilderInputProps) {
   const [mode, setMode] = useState<'yolo' | 'manual'>('yolo');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { isDarkMode } = useDarkModeStore();
@@ -41,7 +42,10 @@ function BuilderInput({ prompt, setPrompt }: BuilderInputProps) {
     if (mode === 'manual') {
       setIsModalOpen(true);
     } else {
-      handleCreate({ prompt });
+      handleCreate({ 
+        prompt,
+        ...(templateId && { template_id: templateId })
+      });
     }
   };
 

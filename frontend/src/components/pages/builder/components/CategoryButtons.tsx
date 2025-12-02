@@ -5,7 +5,7 @@ import useDarkModeStore from '../../../../../store/darkmode.store';
 import type { ServerTemplateCategory, ServerTemplate } from '../types';
 
 interface CategoryButtonsProps {
-  onTemplateSelect: (prompt: string) => void;
+  onTemplateSelect: (prompt: string, templateId: string) => void;
   categories?: ServerTemplateCategory[];
   isLoading?: boolean;
 }
@@ -19,7 +19,7 @@ function CategoryButtons({ onTemplateSelect, categories = [], isLoading = false 
   };
 
   const handleTemplateClick = (template: ServerTemplate) => {
-    onTemplateSelect(template.system_prompt);
+    onTemplateSelect(template.system_prompt, template.id);
     setSelectedCategory(null);
   };
 
@@ -63,7 +63,7 @@ function CategoryButtons({ onTemplateSelect, categories = [], isLoading = false 
             </p>
             
             <div className="flex flex-wrap justify-center gap-3 mb-6">
-              {categories.map((category, index) => (
+              {(categories || []).map((category, index) => (
                 <motion.button
                   key={index}
                   onClick={() => handleCategoryClick(category)}
@@ -135,7 +135,7 @@ function CategoryButtons({ onTemplateSelect, categories = [], isLoading = false 
 
             {/* Templates Grid */}
             <div className="flex flex-wrap justify-center gap-3">
-              {selectedCategory.templates.map((template, index) => (
+              {(selectedCategory.templates || []).map((template, index) => (
                 <motion.button
                   key={template.id}
                   onClick={() => handleTemplateClick(template)}
