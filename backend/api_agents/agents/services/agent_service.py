@@ -530,9 +530,14 @@ class AgentService:
         else:
             return await self._chat_without_tools(agent_model, message, chat_history, callback)
 
-    def authenticate_tool(self, tool_name: str, additional_fields: Dict[str, Any] = None) -> Dict[str, Any]:
+    def authenticate_tool(self, tool_name: str, additional_fields: Dict[str, Any] = None, redirect_url: str = None) -> Dict[str, Any]:
         """
         Initiates the Composio authentication flow for a specific tool.
+
+        Args:
+            tool_name: The name of the tool to authenticate
+            additional_fields: Optional additional fields for the connection (e.g., WhatsApp fields)
+            redirect_url: Optional URL to redirect to after OAuth completes
         """
         if not self.composio_client:
             return {
@@ -555,6 +560,11 @@ class AgentService:
                 "user_id": f"user_{self.user.id}",
                 "allow_multiple": True
             }
+
+            # Add redirect URL if provided
+            if redirect_url:
+                initiate_params["redirect_url"] = redirect_url
+                print(f"🔄 OAuth will redirect to: {redirect_url}")
 
             if additional_fields:
                 if 'waba_id' in additional_fields:

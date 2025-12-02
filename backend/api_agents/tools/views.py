@@ -75,7 +75,7 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
             401: OpenApiResponse(description='Authentication credentials were not provided or are invalid'),
             500: OpenApiResponse(description='Unexpected server error'),
         },
-        description='Starts Composio auth and upserts a local connection. **Authentication required.** Flow: (1) Authenticates user (returns 401 if not authenticated). (2) Reads tool_name from body (WhatsApp may include waba_id, phone_number_id). (3) Calls AgentService.authenticate_tool(tool_name, ...), which contacts Composio and returns auth_url and auth_config_id. (4) Upserts a local ComposioConnection for request.user with is_active=False and metadata.status="pending_auth". (5) Returns { success, auth_url, connection }. Security: Authentication enforced via IsAuthenticated permission. User context is always derived from the verified token, never from request body. Status codes: 201 if a new local record was created, 200 if an existing record was updated.'
+        description='Starts Composio auth and upserts a local connection. **Authentication required.** Flow: (1) Authenticates user (returns 401 if not authenticated). (2) Reads tool_name and optional redirect_url from body (WhatsApp may include waba_id, phone_number_id). (3) Calls AgentService.authenticate_tool(tool_name, ...), which contacts Composio and returns auth_url and auth_config_id. The redirect_url (if provided) specifies where the user will be redirected after completing OAuth - this allows seamless return to the originating page. (4) Upserts a local ComposioConnection for request.user with is_active=False and metadata.status="pending_auth". (5) Returns { success, auth_url, connection }. Security: Authentication enforced via IsAuthenticated permission. User context is always derived from the verified token, never from request body. Status codes: 201 if a new local record was created, 200 if an existing record was updated.'
     )
     def create(self, request, *args, **kwargs):
         """
@@ -83,9 +83,11 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
         Returns the auth_url and the local connection.
         """
         tool_name = request.data.get('tool_name')
+        redirect_url = request.data.get('redirect_url')  # Optional: where to redirect after OAuth
 
         print(f"🔌 Connection request received")
         print(f"   Tool name (raw): {tool_name}")
+        print(f"   Redirect URL: {redirect_url}")
         print(f"   Request data: {request.data}")
 
         if not tool_name:
@@ -114,7 +116,8 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
             agent_service = AgentService(request.user)
             result = agent_service.authenticate_tool(
                 tool_name,
-                additional_fields if additional_fields else None
+                additional_fields if additional_fields else None,
+                redirect_url=redirect_url
             )
 
             if result.get('success'):
