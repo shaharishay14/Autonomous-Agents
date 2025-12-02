@@ -95,20 +95,12 @@ function ToolSelectionStep({
             {filteredTools.map((tool) => {
               // נשתמש ב-slug אם קיים, אחרת ב-tool_name, אחרת ב-name
               const toolId = tool.slug || tool.tool_name || tool.name;
-              console.log('🛠️ Tool in map:', { 
-                name: tool.name, 
-                tool_name: tool.tool_name, 
-                slug: tool.slug,
-                toolId: toolId,
-                fullTool: tool 
-              });
               const isSelected = selectedTools.includes(toolId);
               
               return (
                 <button
                   key={toolId}
                   onClick={() => {
-                    console.log('🖱️ Button clicked for tool:', toolId);
                     toggleTool(toolId);
                   }}
                   className={`p-4 rounded-xl border-2 text-left transition-all ${

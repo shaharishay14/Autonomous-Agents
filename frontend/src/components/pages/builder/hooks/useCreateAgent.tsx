@@ -22,8 +22,7 @@ export const useCreateAgent = () => {
       console.log('✅ Agent created successfully:', data);
       // Store agent data in sessionStorage for the summary page
       sessionStorage.setItem('newAgentData', JSON.stringify(data));
-      // Navigate to summary page
-      navigate('/agent-summary');
+      // Loading page will handle navigation to summary page after 2 seconds
     },
     onError: (error) => {
       const message = error.response?.data?.message || error.message || 'Failed to create agent';

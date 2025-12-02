@@ -8,6 +8,7 @@ export const fetchAvailableTools = async (): Promise<AvailableToolsResponse> => 
 
 interface ConnectToolPayload {
   tool_name: string;
+  redirect_url?: string;
 }
 
 export const connectTool = async (payload: ConnectToolPayload) => {

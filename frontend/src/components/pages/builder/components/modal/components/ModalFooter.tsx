@@ -23,7 +23,7 @@ function ModalFooter({
   const { isDarkMode } = useDarkModeStore();
 
   return (
-    <div className={`px-8 py-6 border-t flex items-center justify-between ${
+    <div className={`px-8 py-6 border-t flex items-center justify-between flex-shrink-0 ${
       isDarkMode ? 'border-gray-800' : 'border-gray-200'
     }`}>
       <button

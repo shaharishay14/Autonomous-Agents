@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import useDarkModeStore from '../../../../../store/darkmode.store';
 import { useCreateAgent } from '../hooks';
-import { useCreateManualAgent } from '../../agents/hooks';
 import { FadeIn, ScaleIn } from '../../../shared/animation';
 import { ManualAgentModal } from './modal';
 import type { ManualAgentData } from './modal';
@@ -17,8 +16,7 @@ function BuilderInput({ prompt, setPrompt, templateId }: BuilderInputProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { isDarkMode } = useDarkModeStore();
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { handleCreate, isCreating } = useCreateAgent();
-  const { createManualAgent, isCreating: isCreatingManual } = useCreateManualAgent();
+  const { handleCreate, createAgent, isCreating } = useCreateAgent();
 
   useEffect(() => {
     // Focus on the input when component mounts
@@ -50,19 +48,11 @@ function BuilderInput({ prompt, setPrompt, templateId }: BuilderInputProps) {
   };
 
   const handleManualSubmit = (data: ManualAgentData) => {
-    createManualAgent({
-      name: data.name,
+    createAgent({
       prompt: data.prompt,
-      avatar: data.avatar,
-      app_connections: data.tools || [],
-      agent_tools: [],
-      files: data.files || [],
-    }, {
-      onSuccess: () => {
-        setIsModalOpen(false);
-        setPrompt('');
-      },
     });
+    setIsModalOpen(false);
+    setPrompt('');
   };
 
   return (
@@ -172,7 +162,7 @@ function BuilderInput({ prompt, setPrompt, templateId }: BuilderInputProps) {
             <ScaleIn delay={1.2} duration={0.5} scale={0.8} springy>
               <button
                 onClick={handleCreateClick}
-                disabled={isCreating || isCreatingManual || !prompt.trim()}
+                disabled={isCreating || !prompt.trim()}
                 className="relative overflow-visible group flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 via-purple-500 to-orange-500 hover:from-purple-500 hover:via-purple-400 hover:to-orange-400 text-white font-medium text-sm transition-all shadow-md hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               >
               {/* Spark Animation - Main Beam */}
@@ -202,7 +192,7 @@ function BuilderInput({ prompt, setPrompt, templateId }: BuilderInputProps) {
               </span>
               
               <span className="relative z-10 flex items-center gap-1.5">
-                {(isCreating || isCreatingManual) ? (
+                {isCreating ? (
                   <>
                     <span className="animate-spin text-sm">⏳</span>
                     <span className="text-sm">Creating...</span>

@@ -11,7 +11,7 @@ import {
   ModalFooter
 } from './components';
 import { useGetConnectionsForDisplay } from '../../../integrations/hooks/useGetConnectionsForDisplay';
-import { useCreateManualAgent } from '../../../agents/hooks';
+import { useCreateAgent } from '../../hooks/useCreateAgent';
 
 interface ManualAgentModalProps {
   isOpen: boolean;
@@ -39,7 +39,7 @@ function ManualAgentModal({
 }: ManualAgentModalProps) {
   const { isDarkMode } = useDarkModeStore();
   const [currentStep, setCurrentStep] = useState<Step>(1);
-  const { createManualAgent, isCreating } = useCreateManualAgent();
+  const { createAgent, isCreating } = useCreateAgent();
   
   // Form data
   const [name, setName] = useState('');
@@ -85,14 +85,11 @@ function ManualAgentModal({
   ];
 
   const toggleTool = (toolName: string) => {
-    console.log('🔧 toggleTool called with:', toolName);
     setSelectedTools(prev => {
-      console.log('🔧 Previous selectedTools:', prev);
       const isSelected = prev.includes(toolName);
       const newSelection = isSelected 
         ? prev.filter(t => t !== toolName)
         : [...prev, toolName];
-      console.log('🔧 New selectedTools:', newSelection);
       return newSelection;
     });
   };
@@ -187,7 +184,7 @@ function ManualAgentModal({
       });
     } else {
       // אחרת נשתמש ב-hook המובנה
-      createManualAgent(agentData, {
+      createAgent(agentData, {
         onSuccess: () => {
           onClose();
         },
@@ -269,7 +266,7 @@ function ManualAgentModal({
   const canProceed = currentStep === 1 ? isStep1Valid : true;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -278,7 +275,7 @@ function ManualAgentModal({
       
       {/* Modal */}
       <div 
-        className={`relative w-full max-w-3xl rounded-2xl shadow-2xl border-2 ${
+        className={`relative w-full max-w-3xl rounded-2xl shadow-2xl border-2 my-8 max-h-[90vh] flex flex-col ${
           isDarkMode
             ? 'bg-gray-900 border-purple-500/30'
             : 'bg-white border-purple-200'
@@ -290,7 +287,7 @@ function ManualAgentModal({
         }}
       >
         {/* Header */}
-        <div className={`px-8 py-6 border-b ${
+        <div className={`px-8 py-6 border-b flex-shrink-0 ${
           isDarkMode ? 'border-gray-800' : 'border-gray-200'
         }`}>
           <ModalHeader onClose={onClose} />
@@ -298,7 +295,7 @@ function ManualAgentModal({
         </div>
 
         {/* Content */}
-        <div className={`px-8 py-8 min-h-[400px] ${
+        <div className={`px-8 py-8 overflow-y-auto flex-1 ${
           isDarkMode ? 'bg-gray-900' : 'bg-white'
         }`}>
           {currentStep === 1 && (

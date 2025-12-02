@@ -1,18 +1,26 @@
 import { useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Bot, Sparkles } from 'lucide-react';
 
 function AgentLoading() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const agentId = searchParams.get('id');
 
   useEffect(() => {
-    // If no agent ID in query params, this page was accessed incorrectly
-    if (!agentId) {
-      navigate('/builder');
-    }
-  }, [agentId, navigate]);
+    // בדיקה אם יש מידע של agent חדש ב-sessionStorage
+    const checkAgentData = setInterval(() => {
+      const storedData = sessionStorage.getItem('newAgentData');
+      if (storedData) {
+        // נמצא מידע - ממתין 2 שניות ואז מנווט לעמוד הסיכום
+        clearInterval(checkAgentData);
+        setTimeout(() => {
+          navigate('/agent-summary');
+        }, 2000);
+      }
+    }, 100);
+
+    // ניקוי ה-interval כאשר הקומפוננטה מתנתקת
+    return () => clearInterval(checkAgentData);
+  }, [navigate]);
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
