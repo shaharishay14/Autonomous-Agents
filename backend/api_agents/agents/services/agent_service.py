@@ -775,7 +775,7 @@ class AgentService:
 
                                 if connection_id:
                                     print(f"🗑️  Cleaning up INITIATED connection: {tool_name_debug} (ID: {connection_id})")
-                                    self.composio_client.connected_accounts.delete(connected_account_id=connection_id)
+                                    self.composio_client.connected_accounts.delete(connection_id)
                                     print(f"✅ Deleted ghost connection: {tool_name_debug}")
                             except Exception as delete_error:
                                 print(f"❌ Failed to delete ghost connection {tool_name_debug}: {delete_error}")
