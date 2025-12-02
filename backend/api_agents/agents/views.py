@@ -26,11 +26,10 @@ from ..serializers import (
     AgentAvailableToolsResponseSerializer, SuggestedPromptsRequestSerializer,
     SuggestedPromptsResponseSerializer, AgentToolsResponseSerializer,
     AddAgentToolRequestSerializer, AddAgentToolResponseSerializer,
-    AgentTemplateSerializer, InstantiateTemplateRequestSerializer,
-    InstantiateTemplateResponseSerializer, CreditBalanceSerializer,
+    AgentTemplateSerializer, CreditBalanceSerializer,
     UsageLogSerializer, AddCreditsRequestSerializer, AddCreditsResponseSerializer,
     MessagingChannelSerializer, ConnectTelegramBotSerializer, DisconnectMessagingChannelSerializer,
-    AppConnectionDisplaySerializer, UnifiedAgentCreateSerializer, ManualAgentCreateSerializer, ManualAgentCreateResponseSerializer
+    AppConnectionDisplaySerializer, UnifiedAgentCreateSerializer
 )
 from .services.agent_service import AgentService
 from ..tools.composio_config import APP_SLUGS, APP_METADATA, TOP_SLUGS_BY_APP
@@ -670,6 +669,7 @@ class AgentViewSet(viewsets.ModelViewSet):
         # Create the agent
         agent = Agent.objects.create(
             user=self.request.user,
+            template=template,  # Link to template for missing_connections calculation
             name=name,
             prompt=prompt,
             avatar_image=avatar_data,
@@ -730,8 +730,8 @@ class AgentViewSet(viewsets.ModelViewSet):
             avatar_image=avatar_data,
             avatar_filename=avatar_filename,
             avatar_mime_type=avatar_mime,
-            app_connections=app_connections,
-            agent_tools=agent_tools,
+            app_connections=app_connections, # Composio Apps
+            agent_tools=agent_tools, # Weather, Calculator, etc.
             tools=[]
         )
 
@@ -822,6 +822,38 @@ class AgentViewSet(viewsets.ModelViewSet):
             )
         ]
     )
+    @extend_schema(
+        tags=['agents'],
+        operation_id='agents_public_retrieve',
+        summary='Get public agent details (No authentication required)',
+        description=(
+            'Retrieves public agent information without authentication. '
+            'This endpoint is for publicly shared agents that can be viewed by anyone. '
+            '\n\n'
+            'Chat with this agent via the regular chat endpoint using is_ephemeral=True flag. '
+            'Public agents have limited functionality: no external tools, no chat history persistence.'
+        ),
+        responses={
+            200: AgentSerializer,
+            404: OpenApiResponse(description='Agent not found')
+        }
+    )
+    @action(detail=True, methods=['get'], url_path='public', permission_classes=[AllowAny])
+    def public(self, request, pk=None):
+        """
+        Get public agent details without authentication.
+        Anyone can view this agent, but interactions are limited.
+        """
+        try:
+            agent = Agent.objects.get(pk=pk)
+            serializer = AgentSerializer(agent, context={'request': request})
+            return Response(serializer.data)
+        except Agent.DoesNotExist:
+            return Response(
+                {'error': 'Agent not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
     @action(detail=True, methods=['get'])
     def messages(self, request, pk=None):
         """
@@ -1822,141 +1854,6 @@ class AgentViewSet(viewsets.ModelViewSet):
             'agent_tools': agent.agent_tools
         }, status=status.HTTP_200_OK)
 
-    @extend_schema(
-        tags=['agents'],
-        operation_id='agents_create_manual',
-        summary='Create agent in Manual Mode',
-        description=(
-            'Creates a new agent with full manual configuration. '
-            '**Authentication required.** '
-            '\n\n'
-            'This endpoint is for Manual Mode agent creation, where the user provides:\n'
-            '- Name (required)\n'
-            '- Prompt (required)\n'
-            '- Avatar (optional)\n'
-            '- App connections (optional - list of app slugs like GMAIL, SLACK)\n'
-            '- Agent tools (optional - list of tool names like weather, calculator)\n'
-            '- Files (optional - list of files to attach for persistent context)\n'
-            '\n\n'
-            '**Note:** Use multipart/form-data for file uploads.'
-        ),
-        request=ManualAgentCreateSerializer,
-        responses={
-            201: ManualAgentCreateResponseSerializer,
-            400: OpenApiResponse(description='Invalid input or validation error'),
-            401: OpenApiResponse(description='Authentication required')
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'agent': {
-                        'id': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-                        'name': 'Email Assistant',
-                        'prompt': 'You are a helpful email assistant',
-                        'app_connections': ['GMAIL'],
-                        'agent_tools': ['weather'],
-                        'tools': ['GMAIL_SEND_EMAIL', 'GMAIL_FETCH_EMAILS'],
-                        'created_at': '2025-11-27T10:00:00Z'
-                    },
-                    'message': 'Agent created successfully',
-                    'files_attached': 2
-                },
-                response_only=True,
-                status_codes=['201']
-            )
-        ]
-    )
-    @action(detail=False, methods=['post'], url_path='create-manual')
-    def create_manual(self, request):
-        """
-        Create agent in Manual Mode with full manual configuration.
-        """
-        serializer = ManualAgentCreateSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            validated_data = serializer.validated_data
-
-            # Extract data
-            name = validated_data['name']
-            prompt = validated_data['prompt']
-            avatar = validated_data.get('avatar')
-            app_connections = validated_data.get('app_connections', [])
-            agent_tools = validated_data.get('agent_tools', [])
-            files = validated_data.get('files', [])
-
-            # Validate agent tools
-            invalid_tools = [tool for tool in agent_tools if not is_valid_tool(tool)]
-            if invalid_tools:
-                return Response({
-                    'error': f'Invalid agent tools: {", ".join(invalid_tools)}. Available: {", ".join(get_all_tool_names())}'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            # Process avatar
-            avatar_data = None
-            avatar_filename = None
-            avatar_mime = 'image/jpeg'
-
-            if avatar:
-                avatar_data = self._process_avatar_image(avatar)
-                avatar_filename = avatar.name
-            else:
-                # Assign random default avatar
-                avatar_data, avatar_filename, avatar_mime = self._get_random_default_avatar()
-
-            # Create the agent
-            agent = Agent.objects.create(
-                user=request.user,
-                name=name,
-                prompt=prompt,
-                avatar_image=avatar_data,
-                avatar_filename=avatar_filename,
-                avatar_mime_type=avatar_mime,
-                app_connections=app_connections,
-                agent_tools=agent_tools,
-                tools=[]  # Will be populated by _sync_agent_tools
-            )
-
-            # Sync tools from app_connections
-            self._sync_agent_tools(agent, app_connections)
-
-            # Handle file attachments
-            files_count = 0
-            if files:
-                for file in files:
-                    # Read file content
-                    file_content = file.read()
-
-                    # Create file attachment
-                    FileAttachment.objects.create(
-                        user=request.user,
-                        agent=agent,
-                        file_content=file_content,
-                        original_filename=file.name,
-                        file_size=file.size,
-                        mime_type=file.content_type or 'application/octet-stream',
-                        is_temporary=False  # Persistent files
-                    )
-                    files_count += 1
-                    print(f"📎 Attached file: {file.name} ({file.size} bytes) to agent {agent.name}")
-
-            # Serialize response
-            agent_serializer = AgentSerializer(agent)
-
-            return Response({
-                'agent': agent_serializer.data,
-                'message': 'Agent created successfully',
-                'files_attached': files_count
-            }, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            traceback.print_exc()
-            return Response({
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
     def _sync_agent_tools(self, agent, app_connections):
         """
         Syncs agent tools from app_connections.
@@ -2485,85 +2382,3 @@ class AgentTemplateViewSet(viewsets.GenericViewSet,
     def retrieve(self, request, *args, **kwargs):
         """Get a specific agent template"""
         return super().retrieve(request, *args, **kwargs)
-
-    @extend_schema(
-        tags=['agent-templates'],
-        operation_id='agent_templates_instantiate',
-        summary='Instantiate an agent from a template',
-        request=InstantiateTemplateRequestSerializer,
-        responses={
-            201: OpenApiResponse(
-                response=InstantiateTemplateResponseSerializer,
-                description='Agent created successfully from template'
-            ),
-            400: OpenApiResponse(description='Validation error (e.g., missing required connections, invalid template)'),
-            401: OpenApiResponse(description='Authentication required'),
-            404: OpenApiResponse(description='Template not found')
-        },
-        description=(
-            'Creates a new agent from a template for the authenticated user. '
-            'The agent is created with the template\'s system prompt, default tools, and default agent tools. '
-            '\n\n'
-            'Response includes:\n'
-            '- The newly created agent\n'
-            '- A success message\n'
-            '- List of missing_connections: tools that are configured but not yet connected at account level\n'
-            '\n\n'
-            'After receiving the response, the frontend should:\n'
-            '1. If missing_connections is empty: Navigate to agent chat\n'
-            '2. If missing_connections exists: Navigate to agent configuration page to set up connections'
-        )
-    )
-    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
-    def instantiate_template(self, request):
-        """
-        Instantiate an agent from a template.
-        Creates a new agent with template configuration.
-        """
-        serializer = InstantiateTemplateRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        template_id = serializer.validated_data['template_id']
-
-        try:
-            template = AgentTemplate.objects.get(id=template_id, is_active=True)
-        except AgentTemplate.DoesNotExist:
-            return Response(
-                {'error': 'Template not found or is not active'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        # Check which connections are missing at account level
-        user_connections = ComposioConnection.objects.filter(
-            user=request.user,
-            is_active=True,
-            deleted_at__isnull=True
-        ).values_list('tool_name', flat=True)
-
-        missing_connections = [
-            tool for tool in template.default_tools
-            if tool not in user_connections
-        ]
-
-        # Create the agent with template configuration
-        agent = Agent.objects.create(
-            user=request.user,
-            name=template.name,
-            prompt=template.system_prompt,
-            app_connections=template.default_tools,
-            agent_tools=template.default_agent_tools,
-            tools=[]  # Will be populated by the agent service
-        )
-
-        # Increment usage count
-        template.usage_count += 1
-        template.save(update_fields=['usage_count'])
-
-        # Serialize the response
-        agent_serializer = AgentSerializer(agent, context={'request': request})
-
-        return Response({
-            'agent': agent_serializer.data,
-            'message': f'Agent "{agent.name}" created successfully from template',
-            'missing_connections': missing_connections
-        }, status=status.HTTP_201_CREATED)

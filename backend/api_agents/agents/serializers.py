@@ -49,14 +49,6 @@ class AgentTemplateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'usage_count', 'created_at', 'category_display_name', 'category_icon']
 
 
-class InstantiateTemplateRequestSerializer(serializers.Serializer):
-    """Request serializer for instantiating a template"""
-    template_id = serializers.UUIDField(
-        required=True,
-        help_text="UUID of the agent template to instantiate"
-    )
-
-
 class AgentSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source='user.username')
     message_count = serializers.SerializerMethodField()
@@ -82,17 +74,45 @@ class AgentSerializer(serializers.ModelSerializer):
     # Agent-specific tools (non-Composio) - read-only for now
     agent_tools = serializers.JSONField(read_only=True)
 
+    # Template ID (nullable)
+    template_id = serializers.UUIDField(source='template.id', read_only=True, allow_null=True, help_text="ID of the template used to create this agent (if any)")
+
+    # Missing connections (calculated field)
+    missing_connections = serializers.SerializerMethodField(help_text="List of tools from template that user hasn't connected yet")
+
     class Meta:
         model = agent_models.Agent
         fields = [
-            'id', 'user', 'name', 'prompt',
-            'tools', 'app_connections', 'agent_tools',
-            'created_at', 'updated_at', 'message_count', 'avatar', 'avatar_base64'
+            'name', 'prompt', 'avatar_base64', 'app_connections', 'agent_tools',
+            'missing_connections', 'created_at', 'id', 'template_id',
+            'user', 'tools', 'updated_at', 'message_count', 'avatar'
         ]
         read_only_fields = ['created_at', 'updated_at']
 
     def get_message_count(self, obj) -> int:
         return obj.messages.count()
+
+    def get_missing_connections(self, obj) -> list:
+        """Calculate which tools from template are not yet connected"""
+        # Only calculate if agent was created from a template
+        if not obj.template:
+            return []
+
+        # Get user's active connections
+        from api_agents.tools.models import ComposioConnection
+        user_connections = set(
+            ComposioConnection.objects.filter(
+                user=obj.user,
+                is_active=True,
+                deleted_at__isnull=True
+            ).values_list('tool_name', flat=True)
+        )
+
+        # Compare with template's default tools
+        template_tools = set(obj.template.default_tools or [])
+        missing = list(template_tools - user_connections)
+
+        return missing
 
     def get_avatar_base64(self, obj) -> str | None:
         """Returns the avatar image as a base64-encoded data URI, or None if no avatar exists"""
@@ -224,90 +244,6 @@ class UnifiedAgentCreateSerializer(serializers.Serializer):
                         f'File {file.name} exceeds maximum allowed size of 10MB. File is {file.size / (1024 * 1024):.2f}MB.'
                     )
         return value
-
-
-class ManualAgentCreateSerializer(serializers.Serializer):
-    """Serializer for creating an agent in Manual Mode"""
-    name = serializers.CharField(
-        required=True,
-        max_length=200,
-        help_text="Agent name (required in manual mode)"
-    )
-    prompt = serializers.CharField(
-        required=True,
-        help_text="System prompt for the agent"
-    )
-    avatar = serializers.ImageField(
-        required=False,
-        allow_null=True,
-        help_text="Avatar image file (JPG or PNG, max 5MB)"
-    )
-    app_connections = FlexibleListField(
-        child=serializers.CharField(max_length=100),
-        required=False,
-        default=list,
-        allow_empty=True,
-        help_text="List of app connection slugs (e.g., ['GMAIL', 'SLACK']). Can be sent as JSON string in multipart data."
-    )
-    agent_tools = FlexibleListField(
-        child=serializers.CharField(max_length=100),
-        required=False,
-        default=list,
-        allow_empty=True,
-        help_text="List of agent tool names (e.g., ['weather', 'calculator']). Can be sent as JSON string in multipart data."
-    )
-    files = serializers.ListField(
-        child=serializers.FileField(),
-        required=False,
-        allow_empty=True,
-        help_text="List of files to attach to this agent (for persistent context)"
-    )
-
-    def validate_avatar(self, value):
-        """Validate avatar file size and type"""
-        if value:
-            # Validate file size (5MB max)
-            max_size = 5 * 1024 * 1024  # 5MB
-            if value.size > max_size:
-                raise serializers.ValidationError(
-                    f'File size exceeds maximum allowed size of 5MB. Your file is {value.size / (1024 * 1024):.2f}MB.'
-                )
-
-            # Validate file type
-            if value.content_type not in ['image/jpeg', 'image/jpg', 'image/png']:
-                raise serializers.ValidationError(
-                    f'Invalid file format. Only JPG and PNG images are supported. Your file type: {value.content_type}'
-                )
-
-        return value
-
-    def validate_files(self, value):
-        """Validate file attachments"""
-        if value:
-            max_file_size = 10 * 1024 * 1024  # 10MB per file
-            for file in value:
-                if file.size > max_file_size:
-                    raise serializers.ValidationError(
-                        f'File {file.name} exceeds maximum allowed size of 10MB. File is {file.size / (1024 * 1024):.2f}MB.'
-                    )
-        return value
-
-
-class ManualAgentCreateResponseSerializer(serializers.Serializer):
-    """Response serializer for manual agent creation"""
-    agent = AgentSerializer(help_text="The newly created agent")
-    message = serializers.CharField(help_text="Success message")
-    files_attached = serializers.IntegerField(help_text="Number of files attached to the agent")
-
-
-class InstantiateTemplateResponseSerializer(serializers.Serializer):
-    """Response serializer for template instantiation"""
-    agent = AgentSerializer(help_text="The newly created agent")
-    message = serializers.CharField(help_text="Success message")
-    missing_connections = serializers.ListField(
-        child=serializers.CharField(),
-        help_text="List of tools that require connection at account level"
-    )
 
 
 class ChatMessageSerializer(serializers.ModelSerializer):

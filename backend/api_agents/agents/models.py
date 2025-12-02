@@ -87,6 +87,7 @@ class Agent(models.Model):
     """AI Agent model"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, help_text="Unique identifier for the agent")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='agents')
+    template = models.ForeignKey('AgentTemplate', on_delete=models.SET_NULL, null=True, blank=True, related_name='agents', help_text="Template used to create this agent (if any)")
     name = models.CharField(max_length=200)
     prompt = models.TextField(help_text="System prompt for the agent")
     avatar_image = models.BinaryField(null=True, blank=True, help_text="Agent avatar image stored as binary data")
