@@ -655,11 +655,70 @@ class AgentService:
                 print(f"   Auth Config ID: {auth_config_id}")
                 print(f"   Error type: {type(e).__name__}")
                 print(f"   Error message: {str(e)}")
+
+                error_message = str(e)
+
+                # Handle "Multiple connected accounts" error with Adopt or Kill strategy
+                if "Multiple connected accounts" in error_message or "ComposioMultipleConnectedAccountsError" in type(e).__name__:
+                    print(f"🔍 Detected multiple connections issue - attempting to resolve...")
+
+                    try:
+                        # Get existing connections for this user/tool from Composio
+                        entity_id = f"user_{self.user.id}"
+                        existing_connections = self._get_composio_connections_for_tool(entity_id, tool_name)
+
+                        if existing_connections:
+                            print(f"📋 Found {len(existing_connections)} existing connection(s) in Composio")
+
+                            # Try to adopt the first valid connection
+                            adopted = False
+                            for conn in existing_connections:
+                                if self._try_adopt_connection(conn, tool_name):
+                                    print(f"✅ Adopted existing connection for {tool_name}")
+                                    adopted = True
+                                    break
+
+                            # If adoption succeeded, return success
+                            if adopted:
+                                return {
+                                    "success": True,
+                                    "adopted": True,
+                                    "message": f"Connected to {tool_name} using existing account"
+                                }
+
+                            # If no valid connection found, delete all zombie connections
+                            print(f"🗑️  No valid connections found - deleting zombie connections...")
+                            for conn in existing_connections:
+                                self._delete_composio_connection(conn)
+
+                            # Retry the connection after cleanup
+                            print(f"🔄 Retrying connection after cleanup...")
+                            response = self.composio_client.connected_accounts.initiate(**initiate_params)
+
+                            # Extract auth URL from retry
+                            auth_url = getattr(response, 'redirectUrl', None) or getattr(response, 'redirect_url', None)
+                            connection_status = getattr(response, 'connectionStatus', None) or getattr(response, 'connection_status', None) or getattr(response, 'status', None)
+
+                            if auth_url:
+                                print(f"✅ Retry successful after cleanup")
+                                return {
+                                    "success": True,
+                                    "auth_url": auth_url,
+                                    "auth_config_id": auth_config_id,
+                                    "status": connection_status,
+                                    "cleaned_up": True
+                                }
+                    except Exception as cleanup_error:
+                        print(f"❌ Failed to resolve multiple connections issue: {cleanup_error}")
+                        import traceback
+                        traceback.print_exc()
+
+                # If not a multiple connections error, or cleanup failed, return original error
                 import traceback
                 traceback.print_exc()
 
                 # Extract more detailed error if available
-                error_detail = str(e)
+                error_detail = error_message
                 if hasattr(e, 'response') and e.response:
                     try:
                         error_detail = f"{error_detail} - Response: {e.response.text if hasattr(e.response, 'text') else e.response}"
@@ -680,6 +739,113 @@ class AgentService:
                 "success": False,
                 "error": str(e)
             }
+
+    def _get_composio_connections_for_tool(self, entity_id: str, tool_name: str) -> List:
+        """
+        Fetches all Composio connections for a specific user and tool.
+        Returns a list of connection objects from Composio.
+        """
+        try:
+            # Get all connections for this user
+            response = self.composio_client.connected_accounts.list(entity_id=entity_id)
+
+            # Extract connections from response
+            connections = None
+            if hasattr(response, 'items'):
+                connections = response.items
+            elif hasattr(response, 'data'):
+                connections = response.data
+            elif hasattr(response, '__iter__'):
+                connections = list(response)
+
+            if not connections:
+                return []
+
+            # Filter for the specific tool
+            tool_connections = []
+            for conn in connections:
+                conn_app = None
+                if hasattr(conn, 'toolkit') and conn.toolkit:
+                    conn_app = getattr(conn.toolkit, 'slug', None)
+                elif hasattr(conn, 'integration') and conn.integration:
+                    conn_app = getattr(conn.integration, 'slug', None)
+                elif hasattr(conn, 'app'):
+                    conn_app = conn.app
+
+                if conn_app and conn_app.upper() == tool_name.upper():
+                    tool_connections.append(conn)
+
+            return tool_connections
+
+        except Exception as e:
+            print(f"❌ Error fetching Composio connections: {e}")
+            return []
+
+    def _try_adopt_connection(self, conn, tool_name: str) -> bool:
+        """
+        Tries to adopt an existing Composio connection by updating the local database.
+        Returns True if successful, False otherwise.
+        """
+        try:
+            from api_agents.tools.models import ComposioConnection
+
+            # Extract connection ID
+            conn_id = getattr(conn, 'id', None)
+            if not conn_id:
+                print(f"⚠️  Connection missing ID, cannot adopt")
+                return False
+
+            # Check connection status - only adopt ACTIVE connections
+            status = getattr(conn, 'status', None) or getattr(conn, 'connectionStatus', None)
+            if status and status.upper() not in ['ACTIVE', 'ENABLED']:
+                print(f"⚠️  Connection {conn_id} has status {status}, not adopting")
+                return False
+
+            # Check if we already have this connection in our DB
+            existing = ComposioConnection.objects.filter(
+                user=self.user,
+                tool_name=tool_name.upper(),
+                connection_id=conn_id
+            ).first()
+
+            if existing:
+                # Update to active
+                existing.is_active = True
+                existing.deleted_at = None
+                existing.save()
+                print(f"✅ Re-activated existing connection {conn_id}")
+            else:
+                # Create new local record
+                ComposioConnection.objects.create(
+                    user=self.user,
+                    tool_name=tool_name.upper(),
+                    connection_id=conn_id,
+                    is_active=True
+                )
+                print(f"✅ Adopted new connection {conn_id}")
+
+            return True
+
+        except Exception as e:
+            print(f"❌ Error adopting connection: {e}")
+            return False
+
+    def _delete_composio_connection(self, conn):
+        """
+        Deletes a connection from Composio's database.
+        """
+        try:
+            conn_id = getattr(conn, 'id', None)
+            if not conn_id:
+                print(f"⚠️  Connection missing ID, cannot delete")
+                return
+
+            print(f"🗑️  Deleting Composio connection: {conn_id}")
+            self.composio_client.connected_accounts.delete(connection_id=conn_id)
+            print(f"✅ Deleted connection {conn_id} from Composio")
+
+        except Exception as e:
+            print(f"❌ Error deleting Composio connection: {e}")
 
     def get_connected_tools(self) -> List[str]:
         """
