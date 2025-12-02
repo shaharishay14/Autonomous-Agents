@@ -712,14 +712,10 @@ class AgentService:
         if not self.composio_client: return []
         try:
             entity_id = f"user_{self.user.id}"
-            try:
-                response = self.composio_client.connected_accounts.list(entity_id=entity_id)
-            except Exception:
-                try:
-                    response = self.composio_client.connected_accounts.list(user_id=entity_id)
-                except Exception:
-                    # Some SDK versions do not accept filters; list all and filter client-side
-                    response = self.composio_client.connected_accounts.list()
+
+            # List ALL connections without filters to find ghost connections
+            print(f"🔍 Listing ALL connections for debugging...")
+            response = self.composio_client.connected_accounts.list()
 
             connections = None
             if hasattr(response, 'items'): connections = response.items
@@ -734,6 +730,23 @@ class AgentService:
                 elif hasattr(conn, 'entity_id'): conn_entity = conn.entity_id
                 elif hasattr(conn, 'userId'): conn_entity = conn.userId
                 elif hasattr(conn, 'user_id'): conn_entity = conn.user_id
+
+                # Get tool name and ID for logging ALL connections
+                tool_name_all = "Unknown"
+                conn_id_all = "Unknown"
+                if hasattr(conn, 'toolkit') and conn.toolkit:
+                    tool_name_all = getattr(conn.toolkit, 'slug', 'Unknown')
+                if hasattr(conn, 'id'): conn_id_all = conn.id
+                elif hasattr(conn, 'connectionId'): conn_id_all = conn.connectionId
+
+                # Get status for logging
+                conn_status_debug = "Unknown"
+                if hasattr(conn, 'status'): conn_status_debug = conn.status
+                elif hasattr(conn, 'connectionStatus'): conn_status_debug = conn.connectionStatus
+                elif hasattr(conn, 'connection_status'): conn_status_debug = conn.connection_status
+
+                print(f"🔍 Found connection: {tool_name_all} | Entity: {conn_entity} | Status: {conn_status_debug} | ID: {conn_id_all}")
+
                 if conn_entity and conn_entity != entity_id: continue
 
                 # Check connection status - only include ACTIVE/ENABLED connections
