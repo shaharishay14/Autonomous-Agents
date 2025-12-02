@@ -750,11 +750,16 @@ class AgentService:
             response = None
             try:
                 # Try with no parameters first (gets all for this API key)
+                print(f"🔍 Calling composio_client.connected_accounts.list()...")
                 response = self.composio_client.connected_accounts.list()
+                print(f"✅ Got response: {type(response)}")
             except Exception as e1:
+                print(f"⚠️  list() failed: {e1}")
                 try:
                     # Try with user_id parameter
+                    print(f"🔍 Trying with user_id={entity_id}...")
                     response = self.composio_client.connected_accounts.list(user_id=entity_id)
+                    print(f"✅ Got response: {type(response)}")
                 except Exception as e2:
                     print(f"❌ Failed to list connections: {e1}, {e2}")
                     return []
@@ -763,18 +768,23 @@ class AgentService:
             connections = None
             if hasattr(response, 'items'):
                 connections = response.items
+                print(f"📋 Extracted {len(connections) if connections else 0} connections from response.items")
             elif hasattr(response, 'data'):
                 connections = response.data
+                print(f"📋 Extracted {len(connections) if connections else 0} connections from response.data")
             elif hasattr(response, '__iter__'):
                 connections = list(response)
+                print(f"📋 Extracted {len(connections) if connections else 0} connections from iterable response")
 
             if not connections:
                 print(f"ℹ️  No connections found in Composio response")
                 return []
 
+            print(f"🔍 Filtering {len(connections)} total connections for entity_id={entity_id}, tool={tool_name}")
+
             # Filter for the specific user and tool
             tool_connections = []
-            for conn in connections:
+            for i, conn in enumerate(connections):
                 # Check if connection belongs to this user
                 conn_entity = None
                 if hasattr(conn, 'entityId'):
@@ -786,10 +796,6 @@ class AgentService:
                 elif hasattr(conn, 'user_id'):
                     conn_entity = conn.user_id
 
-                # Skip if not this user's connection
-                if conn_entity and conn_entity != entity_id:
-                    continue
-
                 # Check if this is the tool we're looking for
                 conn_app = None
                 if hasattr(conn, 'toolkit') and conn.toolkit:
@@ -799,8 +805,18 @@ class AgentService:
                 elif hasattr(conn, 'app'):
                     conn_app = conn.app
 
+                print(f"  Connection {i+1}: entity={conn_entity}, app={conn_app}, match_entity={conn_entity == entity_id if conn_entity else 'N/A'}, match_app={conn_app.upper() == tool_name.upper() if conn_app else 'N/A'}")
+
+                # Skip if not this user's connection
+                if conn_entity and conn_entity != entity_id:
+                    print(f"    ⏭️  Skipped - different user")
+                    continue
+
                 if conn_app and conn_app.upper() == tool_name.upper():
+                    print(f"    ✅ Matched! Adding to results")
                     tool_connections.append(conn)
+                else:
+                    print(f"    ⏭️  Skipped - different tool")
 
             print(f"ℹ️  Found {len(tool_connections)} connection(s) for {tool_name}")
             return tool_connections
