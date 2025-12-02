@@ -563,6 +563,12 @@ class AgentService:
 
             # Add redirect URL if provided
             if redirect_url:
+                # If relative path, prepend FRONTEND_URL from environment
+                if redirect_url.startswith('/'):
+                    import os
+                    frontend_url = os.environ.get('FRONTEND_URL', 'https://kgen21.com')
+                    redirect_url = f"{frontend_url.rstrip('/')}{redirect_url}"
+
                 initiate_params["redirect_url"] = redirect_url
                 print(f"🔄 OAuth will redirect to: {redirect_url}")
 
