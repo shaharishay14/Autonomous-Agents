@@ -29,7 +29,7 @@ function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
           }`}>
             {/* Collapsed State (Future or Past Steps) */}
             {!isActive ? (
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm transition-all ${
+              <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full font-bold text-xs sm:text-sm transition-all ${
                 isPast
                   ? isDarkMode
                     ? 'bg-green-500 text-white border-2 border-green-400/50'
@@ -42,13 +42,13 @@ function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
               </div>
             ) : (
               /* Expanded State (Current Step) */
-              <div className={`w-full p-3 rounded-xl transition-all border ${
+              <div className={`w-full p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all border ${
                 isDarkMode
                   ? 'bg-purple-500/20 border-purple-500/50'
                   : 'bg-purple-50 border-purple-300'
               }`}>
-                <div className="flex items-center gap-3">
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm flex-shrink-0 ${
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full font-bold text-xs sm:text-sm flex-shrink-0 ${
                     isDarkMode
                       ? 'bg-purple-500 text-white'
                       : 'bg-purple-600 text-white'
@@ -57,19 +57,19 @@ function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <div className={`text-sm font-semibold truncate ${
+                    <div className={`text-xs sm:text-sm font-semibold truncate ${
                       isDarkMode ? 'text-purple-300' : 'text-purple-700'
                     }`}>
                       {step.title}
                     </div>
-                    <div className={`text-xs truncate ${
+                    <div className={`hidden sm:block text-xs truncate ${
                       isDarkMode ? 'text-purple-400' : 'text-purple-600'
                     }`}>
                       {step.subtitle}
                     </div>
                   </div>
                   
-                  <StepIcon className={`w-5 h-5 flex-shrink-0 ${
+                  <StepIcon className={`hidden sm:block w-5 h-5 flex-shrink-0 ${
                     isDarkMode ? 'text-purple-400' : 'text-purple-600'
                   }`} />
                 </div>

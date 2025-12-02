@@ -28,14 +28,14 @@ function FileUploadStep({
   const { isDarkMode } = useDarkModeStore();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <div>
-        <h3 className={`text-lg font-semibold mb-2 ${
+        <h3 className={`text-base sm:text-lg font-semibold mb-1 sm:mb-2 ${
           isDarkMode ? 'text-gray-200' : 'text-gray-800'
         }`}>
           Upload Knowledge Base Files
         </h3>
-        <p className={`text-sm mb-4 ${
+        <p className={`text-xs sm:text-sm mb-3 sm:mb-4 ${
           isDarkMode ? 'text-gray-400' : 'text-gray-600'
         }`}>
           Add files to give your agent access to specific knowledge. This step is optional.
@@ -48,7 +48,7 @@ function FileUploadStep({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all ${
+        className={`relative border-2 border-dashed rounded-lg sm:rounded-xl p-6 sm:p-12 text-center cursor-pointer transition-all ${
           isDragging
             ? isDarkMode
               ? 'border-purple-500 bg-purple-500/10'
@@ -67,7 +67,7 @@ function FileUploadStep({
           className="hidden"
         />
         
-        <Upload className={`w-12 h-12 mx-auto mb-4 ${
+        <Upload className={`w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-4 ${
           isDragging
             ? 'text-purple-500'
             : isDarkMode
@@ -75,13 +75,13 @@ function FileUploadStep({
               : 'text-gray-400'
         }`} />
         
-        <h4 className={`text-base font-semibold mb-2 ${
+        <h4 className={`text-sm sm:text-base font-semibold mb-1 sm:mb-2 ${
           isDarkMode ? 'text-gray-300' : 'text-gray-700'
         }`}>
           Drag & drop files here
         </h4>
         
-        <p className={`text-sm mb-3 ${
+        <p className={`text-xs sm:text-sm mb-2 sm:mb-3 ${
           isDarkMode ? 'text-gray-500' : 'text-gray-500'
         }`}>
           or click to browse files
@@ -95,22 +95,22 @@ function FileUploadStep({
         <p className={`text-xs ${
           isDarkMode ? 'text-gray-600' : 'text-gray-500'
         }`}>
-          Maximum file size: 10MB • Maximum files: 10
+          Max: 10MB • 10 files
         </p>
       </div>
 
       {/* How it works */}
-      <div className={`p-4 rounded-xl border ${
+      <div className={`p-3 sm:p-4 rounded-lg sm:rounded-xl border ${
         isDarkMode
           ? 'bg-blue-500/10 border-blue-500/30'
           : 'bg-blue-50 border-blue-300'
       }`}>
-        <div className="flex items-start gap-3">
-          <Download className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+        <div className="flex items-start gap-2 sm:gap-3">
+          <Download className={`w-4 h-4 sm:w-5 sm:h-5 mt-0.5 flex-shrink-0 ${
             isDarkMode ? 'text-blue-400' : 'text-blue-600'
           }`} />
           <div>
-            <h5 className={`text-sm font-semibold mb-1 ${
+            <h5 className={`text-xs sm:text-sm font-semibold mb-1 ${
               isDarkMode ? 'text-blue-300' : 'text-blue-700'
             }`}>
               How it works
@@ -127,27 +127,27 @@ function FileUploadStep({
       {/* Uploaded Files List */}
       {files.length > 0 && (
         <div className="space-y-2">
-          <h5 className={`text-sm font-semibold ${
+          <h5 className={`text-xs sm:text-sm font-semibold ${
             isDarkMode ? 'text-gray-300' : 'text-gray-700'
           }`}>
             Uploaded Files ({files.length}/10)
           </h5>
-          <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+          <div className="space-y-2 max-h-[150px] sm:max-h-[200px] overflow-y-auto pr-1 sm:pr-2 custom-scrollbar">
             {files.map((file, index) => (
               <div
                 key={index}
-                className={`flex items-center justify-between p-3 rounded-lg border ${
+                className={`flex items-center justify-between p-2 sm:p-3 rounded-lg border ${
                   isDarkMode
                     ? 'bg-gray-800 border-gray-700'
                     : 'bg-white border-gray-300'
                 }`}
               >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <FileText className={`w-5 h-5 flex-shrink-0 ${
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  <FileText className={`w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 ${
                     isDarkMode ? 'text-purple-400' : 'text-purple-600'
                   }`} />
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${
+                    <p className={`text-xs sm:text-sm font-medium truncate ${
                       isDarkMode ? 'text-gray-200' : 'text-gray-800'
                     }`}>
                       {file.name}
@@ -164,7 +164,7 @@ function FileUploadStep({
                     e.stopPropagation();
                     onRemoveFile(index);
                   }}
-                  className={`p-2 rounded-lg transition-colors ${
+                  className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
                     isDarkMode
                       ? 'text-gray-400 hover:text-red-400 hover:bg-red-500/10'
                       : 'text-gray-500 hover:text-red-600 hover:bg-red-50'

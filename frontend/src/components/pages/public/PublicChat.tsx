@@ -1,8 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { useState } from 'react';
-import { useGetAgent } from '../chat/hooks';
 import { LoadingState, ErrorState } from '../../shared/components';
-import { useSendPublicMessageStream, useGetInitialSuggestions } from './hooks';
+import { useSendPublicMessageStream, useGetInitialSuggestions, useGetPublicAgent } from './hooks';
 import { 
   LayoutPublicChat,
   PublicChatHeader, 
@@ -21,7 +20,7 @@ function PublicChat() {
   }>>([]);
 
   // שליפת נתוני האייג'נט
-  const { agent, isLoading, isError } = useGetAgent(agentid || '');
+  const { agent, isLoading, isError } = useGetPublicAgent(agentid || '');
 
   // שליחת הודעה עם streaming (עם is_ephemeral: true)
   const { 

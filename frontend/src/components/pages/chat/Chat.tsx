@@ -21,10 +21,8 @@ function Chat() {
   
   // שליפת הודעות האייג'נט
   const { messages } = useGetAgentMessages(id || '');
-  
   // hook להצעות פרומפטים - מטפל באופן אוטומטי בקבלת הצעות
   const { suggestedPrompts } = useGetSuggestedPrompts(messages, agent);
-  
   // Modal state
   const { createTriggerModal, closeCreateTriggerModal } = useModalsStore();
 

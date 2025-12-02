@@ -23,13 +23,13 @@ function ModalFooter({
   const { isDarkMode } = useDarkModeStore();
 
   return (
-    <div className={`px-8 py-6 border-t flex items-center justify-between flex-shrink-0 ${
+    <div className={`px-4 sm:px-8 py-4 sm:py-6 border-t flex items-center justify-between flex-shrink-0 gap-2 sm:gap-4 ${
       isDarkMode ? 'border-gray-800' : 'border-gray-200'
     }`}>
       <button
         onClick={onBack}
         disabled={currentStep === 1}
-        className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
+        className={`flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all text-sm sm:text-base ${
           currentStep === 1
             ? 'opacity-50 cursor-not-allowed'
             : isDarkMode
@@ -38,27 +38,28 @@ function ModalFooter({
         }`}
       >
         <ArrowLeft className="w-4 h-4" />
-        Back
+        <span className="hidden sm:inline">Back</span>
       </button>
 
       {currentStep < 4 ? (
         <button
           onClick={onNext}
           disabled={!canProceed}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
+          className={`flex items-center gap-1 sm:gap-2 px-4 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all text-sm sm:text-base ${
             !canProceed
               ? 'opacity-50 cursor-not-allowed bg-gray-400 text-white'
               : 'bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white shadow-lg hover:shadow-xl'
           }`}
         >
-          Next
+          <span className="hidden sm:inline">Next</span>
+          <span className="sm:hidden">Next</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       ) : (
         <button
           onClick={onSubmit}
           disabled={isCreating || !isStep1Valid}
-          className={`flex items-center gap-2 px-8 py-3 rounded-xl font-medium transition-all ${
+          className={`flex items-center gap-1 sm:gap-2 px-4 py-2 sm:px-8 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all text-sm sm:text-base ${
             isCreating || !isStep1Valid
               ? 'opacity-50 cursor-not-allowed bg-gray-400 text-white'
               : 'bg-gradient-to-r from-purple-600 via-purple-500 to-orange-500 hover:from-purple-500 hover:via-purple-400 hover:to-orange-400 text-white shadow-lg hover:shadow-xl'
@@ -67,11 +68,12 @@ function ModalFooter({
           {isCreating ? (
             <>
               <span className="animate-spin">⏳</span>
-              Creating...
+              <span className="hidden sm:inline">Creating...</span>
             </>
           ) : (
             <>
-              Create Agent
+              <span className="hidden sm:inline">Create Agent</span>
+              <span className="sm:hidden">Create</span>
               <ArrowRight className="w-4 h-4" />
             </>
           )}

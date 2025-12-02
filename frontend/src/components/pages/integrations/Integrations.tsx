@@ -13,9 +13,9 @@ function Integrations() {
   const { openIntegrationDetailsModal } = useModalsStore();
   
   // שליפת כלים זמינים מהשרת והמרה לאינטגרציות
-  const { integrations, isLoading, isError, error } = useAvailableTools();
+  const { integrations, isLoading, isError, error, refetch } = useAvailableTools();
   // חיבור כלי
-  const { connectTool, isConnecting, connectingToolName } = useConnectTool(integrations);
+  const { connectTool, isConnecting, connectingToolName } = useConnectTool(integrations, refetch);
   
   // ניתוק כלי
   const { disconnectTool, isDisconnecting, disconnectingToolName } = useDisconnectTool(integrations);

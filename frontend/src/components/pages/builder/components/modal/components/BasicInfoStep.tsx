@@ -21,9 +21,9 @@ function BasicInfoStep({
   const { isDarkMode } = useDarkModeStore();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <label className={`block text-sm font-semibold mb-2 ${
+        <label className={`block text-xs sm:text-sm font-semibold mb-2 ${
           isDarkMode ? 'text-gray-200' : 'text-gray-700'
         }`}>
           Agent Name <span className="text-red-500">*</span>
@@ -33,7 +33,7 @@ function BasicInfoStep({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Enter your agent's name"
-          className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all ${
+          className={`w-full px-3 py-2 sm:px-4 sm:py-3 rounded-lg sm:rounded-xl border-2 outline-none transition-all text-sm sm:text-base ${
             isDarkMode
               ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500'
               : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-purple-500'
@@ -42,7 +42,7 @@ function BasicInfoStep({
       </div>
 
       <div>
-        <label className={`block text-sm font-semibold mb-2 ${
+        <label className={`block text-xs sm:text-sm font-semibold mb-2 ${
           isDarkMode ? 'text-gray-200' : 'text-gray-700'
         }`}>
           Agent Prompt <span className="text-red-500">*</span>
@@ -51,8 +51,8 @@ function BasicInfoStep({
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Build a comprehensive task management agent that can help organize projects, break down complex tasks, create timelines, and track dependencies. The agent should be able to suggest task prioritization strategies, create project plans, identify critical paths, and provide progress updates. It should help with assigning tasks to team members, setting realistic deadlines, and managing resources effectively."
-          rows={6}
-          className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all resize-none ${
+          rows={4}
+          className={`w-full px-3 py-2 sm:px-4 sm:py-3 rounded-lg sm:rounded-xl border-2 outline-none transition-all resize-none text-sm sm:text-base sm:rows-6 ${
             isDarkMode
               ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500'
               : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-purple-500'
@@ -61,7 +61,7 @@ function BasicInfoStep({
       </div>
 
       <div>
-        <label className={`block text-sm font-semibold mb-2 ${
+        <label className={`block text-xs sm:text-sm font-semibold mb-2 ${
           isDarkMode ? 'text-gray-200' : 'text-gray-700'
         }`}>
           Avatar (Optional)
@@ -71,20 +71,21 @@ function BasicInfoStep({
         }`}>
           Upload a custom avatar or we'll generate one automatically for you
         </p>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           {avatarPreview && (
-            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-purple-500">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-purple-500 flex-shrink-0">
               <img src={avatarPreview} alt="Avatar preview" className="w-full h-full object-cover" />
             </div>
           )}
-          <label className={`px-6 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
+          <label className={`px-4 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl border-2 border-dashed cursor-pointer transition-all text-sm sm:text-base ${
             isDarkMode
               ? 'border-gray-700 hover:border-purple-500 bg-gray-800 text-gray-300 hover:text-white'
               : 'border-gray-300 hover:border-purple-500 bg-gray-50 text-gray-700 hover:text-purple-700'
           }`}>
             <span className="flex items-center gap-2">
               <SettingsIcon className="w-4 h-4" />
-              Choose Avatar
+              <span className="hidden sm:inline">Choose Avatar</span>
+              <span className="sm:hidden">Choose</span>
             </span>
             <input
               type="file"

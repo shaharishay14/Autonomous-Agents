@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { getSuggestedPrompts } from '../requests';
 import type { SuggestedPromptsPayload, SuggestedPromptsResponse } from '../types';
@@ -20,22 +20,83 @@ export const useGetSuggestedPrompts = (messages: Message[], agent?: Agent) => {
     onSuccess: () => {},
     onError: (error) => {
       const message = error.response?.data?.message || error.message || 'שגיאה בקבלת הצעות פרומפטים';
-      console.error('❌ שגיאה בקבלת הצעות פרומפטים:', message);
       toast.error(message);
     },
   });
 
+  // שמירת ההודעה האחרונה שבה ביקשנו הצעות
+  const lastProcessedMessageId = useRef<string | null>(null);
+  // שמירה אם כבר ביקשנו הצעות ראשוניות
+  const hasRequestedInitialSuggestions = useRef(false);
+  // שמירת ה-agent הקודם כדי לזהות שינויים
+  const previousAgentId = useRef<string | null>(null);
+
+  // איפוס כשעוברים לאייג'נט אחר
+  useEffect(() => {
+    if (agent?.id && previousAgentId.current !== agent.id) {
+      hasRequestedInitialSuggestions.current = false;
+      lastProcessedMessageId.current = null;
+      previousAgentId.current = agent.id;
+    }
+  }, [agent?.id]);
+
   // כאשר משתמש שולח הודעה, נבקש הצעות לפרומפט הבא
   useEffect(() => {
     const fetchSuggestions = async () => {
-      // אם יש הודעות ואנחנו לא בטעינה
-      if (messages.length > 0 && agent) {
+      if (!agent || isPending) {
+        return;
+      }
+
+      // בדוק אם יש הודעות מהמשתמש
+      const hasUserMessages = messages.some(msg => msg.role === 'user');
+      
+      // אם אין הודעות מהמשתמש, נבקש הצעות ראשוניות (רק פעם אחת)
+      if (!hasUserMessages) {
+        if (!hasRequestedInitialSuggestions.current) {
+          try {
+            // המרת app_connections מ-string ל-array
+            let appConnections: string[] = [];
+            if (agent.app_connections) {
+              try {
+                if (Array.isArray(agent.app_connections)) {
+                  appConnections = agent.app_connections;
+                } else if (typeof agent.app_connections === 'string') {
+                  appConnections = JSON.parse(agent.app_connections);
+                }
+              } catch {
+                appConnections = [];
+              }
+            }
+            
+            // קריאה להצעות ראשוניות על בסיס ה-prompt של האייג'נט
+            await mutateAsync({
+              prompt: agent.prompt || 'שלום, במה אני יכול לעזור?',
+              app_connections: appConnections
+            });
+            
+            hasRequestedInitialSuggestions.current = true;
+          } catch (error) {
+            // שגיאה מטופלת ב-onError של ה-mutation
+          }
+        }
+        return;
+      }
+
+      // אם יש הודעות מהמשתמש, נבקש הצעות על בסיס ההודעה האחרונה מהמשתמש
+      if (hasUserMessages && messages.length > 0) {
         // מצא את ההודעה האחרונה מהמשתמש
         const lastUserMessage = [...messages]
           .reverse()
           .find(msg => msg.role === 'user');
         
-        if (lastUserMessage) {
+        // בדוק שיש הודעה מהמשתמש והיא לא ריקה
+        if (lastUserMessage && lastUserMessage.content && lastUserMessage.content.trim()) {
+          // בדוק אם כבר ביקשנו הצעות עבור ההודעה הזו
+          const messageId = String(lastUserMessage.id || lastUserMessage.content);
+          if (lastProcessedMessageId.current === messageId) {
+            return; // כבר ביקשנו הצעות עבור ההודעה הזו
+          }
+
           try {
             // המרת app_connections מ-string ל-array
             let appConnections: string[] = [];
@@ -54,18 +115,21 @@ export const useGetSuggestedPrompts = (messages: Message[], agent?: Agent) => {
             
             // קריאה להצעות פרומפטים
             await mutateAsync({
-              prompt: lastUserMessage.content,
+              prompt: lastUserMessage.content.trim(),
               app_connections: appConnections
             });
+            
+            // שמירת ההודעה שבה ביקשנו הצעות
+            lastProcessedMessageId.current = messageId;
           } catch (error) {
-            console.error('שגיאה בקבלת הצעות פרומפטים:', error);
+            // שגיאה מטופלת ב-onError של ה-mutation
           }
         }
       }
     };
     
     fetchSuggestions();
-  }, [messages, agent, mutateAsync]);
+  }, [messages, agent, mutateAsync, isPending]);
 
   return {
     // Functions

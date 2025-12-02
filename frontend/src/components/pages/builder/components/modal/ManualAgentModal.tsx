@@ -266,7 +266,7 @@ function ManualAgentModal({
   const canProceed = currentStep === 1 ? isStep1Valid : true;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-2 sm:p-4 overflow-y-auto pt-4 sm:pt-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -275,7 +275,7 @@ function ManualAgentModal({
       
       {/* Modal */}
       <div 
-        className={`relative w-full max-w-3xl rounded-2xl shadow-2xl border-2 my-8 max-h-[90vh] flex flex-col ${
+        className={`relative w-full max-w-3xl rounded-xl sm:rounded-2xl shadow-2xl border sm:border-2 mt-0 sm:my-8 max-h-[calc(100vh-2rem)] sm:max-h-[90vh] flex flex-col ${
           isDarkMode
             ? 'bg-gray-900 border-purple-500/30'
             : 'bg-white border-purple-200'
@@ -287,7 +287,7 @@ function ManualAgentModal({
         }}
       >
         {/* Header */}
-        <div className={`px-8 py-6 border-b flex-shrink-0 ${
+        <div className={`px-4 sm:px-8 py-4 sm:py-6 border-b flex-shrink-0 ${
           isDarkMode ? 'border-gray-800' : 'border-gray-200'
         }`}>
           <ModalHeader onClose={onClose} />
@@ -295,7 +295,7 @@ function ManualAgentModal({
         </div>
 
         {/* Content */}
-        <div className={`px-8 py-8 overflow-y-auto flex-1 ${
+        <div className={`px-4 sm:px-8 py-4 sm:py-8 overflow-y-auto flex-1 min-h-0 ${
           isDarkMode ? 'bg-gray-900' : 'bg-white'
         }`}>
           {currentStep === 1 && (
