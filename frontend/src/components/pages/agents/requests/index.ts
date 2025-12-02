@@ -70,8 +70,8 @@ export const createManualAgent = async (payload: CreateManualAgentPayload): Prom
   
   // Optional files
   if (payload.files && payload.files.length > 0) {
-    payload.files.forEach((file, index) => {
-      formData.append(`files`, file);
+    payload.files.forEach((file) => {
+      formData.append('files', file);
     });
   }
   
