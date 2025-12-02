@@ -618,6 +618,25 @@ class AgentViewSet(viewsets.ModelViewSet):
             traceback.print_exc()
             return None, None, None
 
+    def create(self, request, *args, **kwargs):
+        """
+        Override create to ensure proper response serialization.
+        Uses UnifiedAgentCreateSerializer for write operations (validation),
+        then serializes response with AgentSerializer to include all fields.
+        """
+        # Validate input with write serializer
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Create the agent (perform_create sets serializer.instance)
+        self.perform_create(serializer)
+
+        # Serialize the created instance with read serializer to get all fields
+        response_serializer = AgentSerializer(serializer.instance, context={'request': request})
+
+        headers = self.get_success_headers(response_serializer.data)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     def perform_create(self, serializer):
         """
         Unified agent creation handler supporting 3 modes:
