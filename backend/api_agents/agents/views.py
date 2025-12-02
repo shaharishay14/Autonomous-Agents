@@ -692,6 +692,9 @@ class AgentViewSet(viewsets.ModelViewSet):
 
         print(f"✅ Created agent from template: {template.name} → {agent.name}")
 
+        # Set the created agent as the serializer instance so it can be serialized and returned
+        serializer.instance = agent
+
     def _create_manual_or_yolo(self, serializer):
         """Handle Manual Mode or YOLO Mode creation"""
         prompt = serializer.validated_data.get('prompt', '')
@@ -742,6 +745,9 @@ class AgentViewSet(viewsets.ModelViewSet):
         self._attach_files_to_agent(agent, files)
 
         print(f"✅ Created agent: {agent.name}")
+
+        # Set the created agent as the serializer instance so it can be serialized and returned
+        serializer.instance = agent
 
     def perform_update(self, serializer):
         """
