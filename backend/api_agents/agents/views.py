@@ -957,6 +957,55 @@ class AgentViewSet(viewsets.ModelViewSet):
         inline_files = serializer.validated_data.get('files', [])
         is_ephemeral = serializer.validated_data.get('is_ephemeral', False)
 
+        # ===== TASK 8: URL FILE DETECTION & FETCHING =====
+        # Detect URLs in message and fetch content with safety checks
+        import re
+        url_pattern = r'https?://(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)'
+        urls = re.findall(url_pattern, message)
+
+        if urls:
+            print(f"🔗 Detected {len(urls)} URL(s) in message")
+            import requests
+            for url in urls[:3]:  # Limit to 3 URLs per message
+                try:
+                    print(f"📥 Fetching content from: {url}")
+                    response = requests.get(url, timeout=10, headers={'User-Agent': 'KGen21-Bot'})
+
+                    # Safety check: limit size to 1MB
+                    if len(response.content) > 1024 * 1024:
+                        print(f"⚠️  File too large ({len(response.content)} bytes), skipping")
+                        message += f"\n\n[Note: File at {url} is too large to process]"
+                        continue
+
+                    # Extract filename from URL or Content-Disposition header
+                    filename = url.split('/')[-1] or 'downloaded_file'
+                    if 'content-disposition' in response.headers:
+                        import re
+                        cd = response.headers['content-disposition']
+                        fname_match = re.findall('filename="(.+)"', cd)
+                        if fname_match:
+                            filename = fname_match[0]
+
+                    # Create temporary file attachment
+                    content_type = response.headers.get('content-type', 'application/octet-stream')
+                    attachment = FileAttachment.objects.create(
+                        user=request.user,
+                        agent=agent,
+                        file_content=response.content,
+                        original_filename=filename,
+                        file_size=len(response.content),
+                        mime_type=content_type,
+                        is_temporary=True
+                    )
+                    inline_files.append(attachment)
+                    print(f"✅ Fetched and attached: {filename} ({len(response.content)} bytes)")
+                    message += f"\n\n[Auto-fetched file from URL: {filename}]"
+
+                except Exception as e:
+                    print(f"❌ Failed to fetch {url}: {e}")
+                    message += f"\n\n[Note: Could not fetch file from {url}]"
+        # ==================================================
+
         # ===== AUTO-LOAD PERSISTENT FILES =====
         # Load all persistent files for this agent from database
         persistent_file_ids = list(
@@ -1272,6 +1321,12 @@ class AgentViewSet(viewsets.ModelViewSet):
                 # Wait for chat task to complete
                 await chat_task
                 response = response_container['response']
+
+                # Task 7: Context overflow protection - truncate if response is too long
+                MAX_RESPONSE_LENGTH = 15000  # ~4000 tokens, safe limit
+                if len(response) > MAX_RESPONSE_LENGTH:
+                    print(f"⚠️  Response too long ({len(response)} chars), truncating to {MAX_RESPONSE_LENGTH}")
+                    response = response[:MAX_RESPONSE_LENGTH] + "\n\n... (response truncated for length)"
 
                 # 7. Save assistant message (only if not ephemeral)
                 assistant_msg = None

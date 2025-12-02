@@ -333,7 +333,10 @@ class AgentService:
                 result = await runner.run(composio_agent, full_chat_history)
 
             if hasattr(result, 'final_output'):
-                return result.final_output
+                # Task 6: Detect simulated actions and log warnings
+                output = result.final_output
+                self._detect_simulated_actions(output, tools)
+                return output
             elif hasattr(result, 'output'):
                 return result.output
             elif hasattr(result, 'content'):
@@ -1065,6 +1068,39 @@ class AgentService:
             import traceback
             traceback.print_exc()
             return f"Sorry, I encountered an error: {str(e)}"
+
+    def _detect_simulated_actions(self, output: str, available_tools: list) -> None:
+        """
+        Task 6: Detect when agent simulates actions instead of executing tools.
+        Logs warnings to help identify and debug simulation behavior.
+        """
+        if not output or not available_tools:
+            return
+
+        # Keywords indicating simulation/description instead of execution
+        simulation_keywords = [
+            "I'll send", "I will send", "I would send",
+            "I'll create", "I will create", "I would create",
+            "I'll search", "I will search", "I would search",
+            "I can help you send", "I can help you create",
+            "Here's what I would", "Here's what I'll",
+            "Let me send", "Let me create", "Let me search",
+            "I'm going to send", "I'm going to create",
+        ]
+
+        output_lower = output.lower()
+        detected_simulations = []
+
+        for keyword in simulation_keywords:
+            if keyword.lower() in output_lower:
+                detected_simulations.append(keyword)
+
+        if detected_simulations:
+            print(f"⚠️  SIMULATION DETECTED: Agent described action instead of executing")
+            print(f"   Keywords found: {detected_simulations}")
+            print(f"   Available tools: {[t.split('_')[0] for t in available_tools[:3]]}")
+            print(f"   Response preview: {output[:200]}...")
+            print(f"   💡 TIP: Agent should USE tools, not describe them!")
 
     async def generate_greeting_message(self, agent_model) -> str:
         """
