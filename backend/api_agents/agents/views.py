@@ -668,7 +668,18 @@ class AgentViewSet(viewsets.ModelViewSet):
         # Start with template defaults
         prompt = serializer.validated_data.get('prompt') or template.system_prompt
         name = serializer.validated_data.get('name') or template.name
-        app_connections = serializer.validated_data.get('app_connections') or template.default_tools or []
+
+        # Get all of user's active connections (not just template's default_tools)
+        from api_agents.tools.models import ComposioConnection
+        user_connections = list(
+            ComposioConnection.objects.filter(
+                user=self.request.user,
+                is_active=True,
+                deleted_at__isnull=True
+            ).values_list('tool_name', flat=True)
+        )
+        app_connections = user_connections if user_connections else []
+
         agent_tools = serializer.validated_data.get('agent_tools') or template.default_agent_tools or []
 
         # Process avatar (user provided or template default or random)
@@ -718,7 +729,18 @@ class AgentViewSet(viewsets.ModelViewSet):
         """Handle Manual Mode or YOLO Mode creation"""
         prompt = serializer.validated_data.get('prompt', '')
         name = serializer.validated_data.get('name', '').strip()
-        app_connections = serializer.validated_data.get('app_connections', [])
+
+        # Get all of user's active connections
+        from api_agents.tools.models import ComposioConnection
+        user_connections = list(
+            ComposioConnection.objects.filter(
+                user=self.request.user,
+                is_active=True,
+                deleted_at__isnull=True
+            ).values_list('tool_name', flat=True)
+        )
+        app_connections = user_connections if user_connections else []
+
         agent_tools = serializer.validated_data.get('agent_tools', [])
 
         # Determine mode: Manual (name provided) or YOLO (no name)
