@@ -26,6 +26,7 @@ from ..serializers import (
     AgentAvailableToolsResponseSerializer, SuggestedPromptsRequestSerializer,
     SuggestedPromptsResponseSerializer, AgentToolsResponseSerializer,
     AddAgentToolRequestSerializer, AddAgentToolResponseSerializer,
+    ConnectToolToAgentRequestSerializer, ConnectToolToAgentResponseSerializer,
     AgentTemplateSerializer, CreditBalanceSerializer,
     UsageLogSerializer, AddCreditsRequestSerializer, AddCreditsResponseSerializer,
     MessagingChannelSerializer, ConnectTelegramBotSerializer, DisconnectMessagingChannelSerializer,
@@ -669,16 +670,24 @@ class AgentViewSet(viewsets.ModelViewSet):
         prompt = serializer.validated_data.get('prompt') or template.system_prompt
         name = serializer.validated_data.get('name') or template.name
 
-        # Get all of user's active connections (not just template's default_tools)
+        # Get intersection of template defaults and user's active connections
+        # Only auto-connect tools that are BOTH in template AND already connected by user
         from api_agents.tools.models import ComposioConnection
-        user_connections = list(
+        user_connections = set(
             ComposioConnection.objects.filter(
                 user=self.request.user,
                 is_active=True,
                 deleted_at__isnull=True
             ).values_list('tool_name', flat=True)
         )
-        app_connections = user_connections if user_connections else []
+        template_defaults = set(tool.upper() for tool in (template.default_tools or []))
+
+        # Intersection: only tools that are both in template AND connected by user
+        app_connections = list(template_defaults & user_connections)
+
+        print(f"📋 Template defaults: {template_defaults}")
+        print(f"🔌 User connections: {user_connections}")
+        print(f"✅ Auto-connecting (intersection): {app_connections}")
 
         agent_tools = serializer.validated_data.get('agent_tools') or template.default_agent_tools or []
 
@@ -1955,6 +1964,146 @@ class AgentViewSet(viewsets.ModelViewSet):
             'message': f'Tool "{tool_name}" disabled successfully',
             'agent_tools': agent.agent_tools
         }, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=['agents'],
+        operation_id='agents_connect_tool',
+        summary='Connect a Composio tool to this agent',
+        description=(
+            'Connects a Composio tool (like GMAIL, SLACK) to this specific agent. '
+            '**Authentication required.** '
+            '\n\n'
+            'This endpoint handles two scenarios:\n'
+            '1. **Tool already connected at account level**: Immediately adds tool to agent\'s app_connections\n'
+            '2. **Tool not connected at account level**: Initiates OAuth flow, then adds to agent after auth completes\n'
+            '\n\n'
+            '**Flow:**\n'
+            '- Checks if user has an active ComposioConnection for this tool\n'
+            '- If not connected: Returns auth_url for OAuth popup, marks requires_auth=true\n'
+            '- If connected: Adds tool to agent\'s app_connections and tools fields, returns success\n'
+        ),
+        request=ConnectToolToAgentRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=ConnectToolToAgentResponseSerializer,
+                description='Tool connected successfully or OAuth required'
+            ),
+            400: OpenApiResponse(description='Invalid request or tool name'),
+            404: OpenApiResponse(description='Agent not found or not owned by user')
+        }
+    )
+    @action(detail=True, methods=['post'], url_path='connect-tool')
+    def connect_tool(self, request, pk=None):
+        """
+        Connect a Composio tool to this agent (and to account if needed).
+        """
+        serializer = ConnectToolToAgentRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        tool_name = serializer.validated_data['tool_name']
+        redirect_url = serializer.validated_data.get('redirect_url')
+
+        # Normalize tool name
+        tool_name = str(tool_name).replace(' ', '').upper()
+
+        agent = self.get_object()
+
+        # Check if tool is already connected to this agent
+        if tool_name in (agent.app_connections or []):
+            return Response({
+                'success': False,
+                'message': f'Tool "{tool_name}" is already connected to this agent',
+                'requires_auth': False,
+                'app_connections': agent.app_connections
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if tool is connected at account level
+        try:
+            connection = ComposioConnection.objects.get(
+                user=request.user,
+                tool_name=tool_name,
+                is_active=True,
+                deleted_at__isnull=True
+            )
+
+            # Tool is connected at account level - add to agent immediately
+            if not agent.app_connections:
+                agent.app_connections = []
+            agent.app_connections.append(tool_name)
+
+            # Add action slugs to tools field
+            agent_service = AgentService(request.user)
+            hardcoded_tools = agent_service.TOP_SLUGS_BY_APP
+
+            if tool_name in hardcoded_tools:
+                if not agent.tools:
+                    agent.tools = []
+                for slug in hardcoded_tools[tool_name]:
+                    if slug not in agent.tools:
+                        agent.tools.append(slug)
+
+            agent.save(update_fields=['app_connections', 'tools'])
+            print(f"✅ Connected {tool_name} to agent {agent.name} (ID: {agent.id})")
+
+            return Response({
+                'success': True,
+                'message': f'Tool "{tool_name}" connected successfully',
+                'requires_auth': False,
+                'auth_url': None,
+                'app_connections': agent.app_connections
+            }, status=status.HTTP_200_OK)
+
+        except ComposioConnection.DoesNotExist:
+            # Tool not connected at account level - initiate OAuth flow
+            try:
+                agent_service = AgentService(request.user)
+                result = agent_service.authenticate_tool(
+                    tool_name,
+                    redirect_url=redirect_url
+                )
+
+                if result.get('success'):
+                    # Create pending connection
+                    connection, created = ComposioConnection.objects.update_or_create(
+                        user=request.user,
+                        tool_name=tool_name,
+                        defaults={
+                            'is_active': False,
+                            'auth_config_id': result.get('auth_config_id', ''),
+                            'deleted_at': None,
+                            'metadata': {
+                                'status': 'pending_auth',
+                                'pending_agent_id': str(agent.id)  # Store agent ID for post-OAuth linking
+                            }
+                        }
+                    )
+
+                    print(f"🔐 OAuth required for {tool_name} - agent {agent.id} will be linked after auth")
+
+                    return Response({
+                        'success': True,
+                        'message': f'Please complete OAuth to connect {tool_name}',
+                        'requires_auth': True,
+                        'auth_url': result.get('auth_url'),
+                        'app_connections': agent.app_connections or []
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response({
+                        'success': False,
+                        'message': f'Failed to initiate OAuth: {result.get("error", "Unknown error")}',
+                        'requires_auth': False,
+                        'app_connections': agent.app_connections or []
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+            except Exception as e:
+                traceback.print_exc()
+                return Response({
+                    'success': False,
+                    'message': f'Error connecting tool: {str(e)}',
+                    'requires_auth': False,
+                    'app_connections': agent.app_connections or []
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def _sync_agent_tools(self, agent, app_connections):
         """

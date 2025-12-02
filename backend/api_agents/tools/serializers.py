@@ -115,3 +115,33 @@ class AddAgentToolResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     message = serializers.CharField()
     agent_tools = serializers.ListField(child=serializers.CharField())
+
+
+class ConnectToolToAgentRequestSerializer(serializers.Serializer):
+    """Request serializer for connecting a Composio tool to an agent"""
+    tool_name = serializers.CharField(
+        help_text="Name of the Composio tool to connect (e.g., 'GMAIL', 'SLACK')"
+    )
+    redirect_url = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="Optional redirect URL after OAuth completes"
+    )
+
+
+class ConnectToolToAgentResponseSerializer(serializers.Serializer):
+    """Response serializer for connecting a tool to an agent"""
+    success = serializers.BooleanField()
+    message = serializers.CharField()
+    auth_url = serializers.CharField(
+        required=False,
+        allow_null=True,
+        help_text="OAuth URL to visit if account-level connection is needed"
+    )
+    requires_auth = serializers.BooleanField(
+        help_text="Whether user needs to complete OAuth flow"
+    )
+    app_connections = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="Updated list of tools connected to this agent"
+    )

@@ -60,6 +60,8 @@ from .tools.serializers import (
     AgentToolsResponseSerializer,
     AddAgentToolRequestSerializer,
     AddAgentToolResponseSerializer,
+    ConnectToolToAgentRequestSerializer,
+    ConnectToolToAgentResponseSerializer,
 )
 
 from .workflows.serializers import (
@@ -130,6 +132,8 @@ __all__ = [
     'AgentToolsResponseSerializer',
     'AddAgentToolRequestSerializer',
     'AddAgentToolResponseSerializer',
+    'ConnectToolToAgentRequestSerializer',
+    'ConnectToolToAgentResponseSerializer',
     # Workflows
     'TriggerSerializer',
     'TriggerExecutionSerializer',

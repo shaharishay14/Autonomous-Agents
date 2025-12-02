@@ -84,12 +84,10 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
         """
         tool_name = request.data.get('tool_name')
         redirect_url = request.data.get('redirect_url')  # Optional: where to redirect after OAuth
-        agent_id = request.data.get('agent_id')  # Optional: auto-link tool to this agent
 
         print(f"🔌 Connection request received")
         print(f"   Tool name (raw): {tool_name}")
         print(f"   Redirect URL: {redirect_url}")
-        print(f"   Agent ID: {agent_id}")
         print(f"   Request data: {request.data}")
 
         if not tool_name:
@@ -141,25 +139,6 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                         }
                     }
                 )
-
-                # Auto-link tool to agent if agent_id is provided
-                if agent_id:
-                    try:
-                        from api_agents.agents.models import Agent
-                        agent = Agent.objects.get(id=agent_id, user=request.user)
-
-                        # Add tool to agent's app_connections if not already present
-                        if tool_name not in agent.app_connections:
-                            agent.app_connections.append(tool_name)
-                            agent.save(update_fields=['app_connections'])
-                            print(f"🔗 Auto-linked {tool_name} to agent {agent.name} (ID: {agent_id})")
-                        else:
-                            print(f"ℹ️  {tool_name} already linked to agent {agent.name}")
-                    except Agent.DoesNotExist:
-                        print(f"⚠️  Agent {agent_id} not found or not owned by user - skipping auto-link")
-                    except Exception as e:
-                        print(f"⚠️  Failed to auto-link tool to agent: {e}")
-                        # Don't fail the connection if auto-link fails
 
                 resp_data = {
                     'success': True,
@@ -223,10 +202,35 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
             instance.is_active = False
             instance.save()
 
+            # Cascade: Remove tool from all agents that have it connected
+            from api_agents.agents.models import Agent
+            affected_agents = Agent.objects.filter(
+                user=request.user,
+                app_connections__contains=[tool_name]
+            )
+
+            affected_count = 0
+            for agent in affected_agents:
+                # Remove tool from app_connections
+                if tool_name in agent.app_connections:
+                    agent.app_connections.remove(tool_name)
+
+                    # Remove related action slugs from tools array
+                    # Filter out any tool slugs that start with this tool name
+                    agent.tools = [
+                        tool for tool in agent.tools
+                        if not tool.upper().startswith(f"{tool_name}_")
+                    ]
+
+                    agent.save(update_fields=['app_connections', 'tools'])
+                    affected_count += 1
+                    print(f"🔗 Removed {tool_name} from agent {agent.name} (ID: {agent.id})")
+
             return Response({
                 'success': True,
                 'message': f"Connection {connection_id} for {tool_name} has been disconnected",
-                'composio_disconnect': composio_result
+                'composio_disconnect': composio_result,
+                'affected_agents_count': affected_count
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
