@@ -690,24 +690,31 @@ class AgentService:
                             print(f"🗑️  No valid connections found - deleting zombie connections...")
                             for conn in existing_connections:
                                 self._delete_composio_connection(conn)
+                        else:
+                            # No connections found via list(), but Composio says they exist
+                            # These might be ghost connections with non-ACTIVE status
+                            # Try to delete them using the entity_id directly
+                            print(f"⚠️  No connections returned by list(), but Composio says they exist")
+                            print(f"🧹 Attempting to delete ghost connections using entity_id...")
+                            self._delete_all_connections_for_entity(entity_id, tool_name)
 
-                            # Retry the connection after cleanup
-                            print(f"🔄 Retrying connection after cleanup...")
-                            response = self.composio_client.connected_accounts.initiate(**initiate_params)
+                        # Retry the connection after cleanup
+                        print(f"🔄 Retrying connection after cleanup...")
+                        response = self.composio_client.connected_accounts.initiate(**initiate_params)
 
-                            # Extract auth URL from retry
-                            auth_url = getattr(response, 'redirectUrl', None) or getattr(response, 'redirect_url', None)
-                            connection_status = getattr(response, 'connectionStatus', None) or getattr(response, 'connection_status', None) or getattr(response, 'status', None)
+                        # Extract auth URL from retry
+                        auth_url = getattr(response, 'redirectUrl', None) or getattr(response, 'redirect_url', None)
+                        connection_status = getattr(response, 'connectionStatus', None) or getattr(response, 'connection_status', None) or getattr(response, 'status', None)
 
-                            if auth_url:
-                                print(f"✅ Retry successful after cleanup")
-                                return {
-                                    "success": True,
-                                    "auth_url": auth_url,
-                                    "auth_config_id": auth_config_id,
-                                    "status": connection_status,
-                                    "cleaned_up": True
-                                }
+                        if auth_url:
+                            print(f"✅ Retry successful after cleanup")
+                            return {
+                                "success": True,
+                                "auth_url": auth_url,
+                                "auth_config_id": auth_config_id,
+                                "status": connection_status,
+                                "cleaned_up": True
+                            }
                     except Exception as cleanup_error:
                         print(f"❌ Failed to resolve multiple connections issue: {cleanup_error}")
                         import traceback
@@ -892,6 +899,64 @@ class AgentService:
 
         except Exception as e:
             print(f"❌ Error deleting Composio connection: {e}")
+
+    def _delete_all_connections_for_entity(self, entity_id: str, tool_name: str):
+        """
+        Attempts to delete all connections for an entity/tool, including ghost connections.
+        This is called when list() returns empty but Composio says connections exist.
+        """
+        try:
+            print(f"🔍 Fetching ALL connections (including non-active) for {entity_id}...")
+
+            # Try to get connected accounts with different approaches
+            all_connections = []
+
+            # Approach 1: Try getting by entity_id and app
+            try:
+                response = self.composio_client.connected_accounts.list()
+                if hasattr(response, 'items'):
+                    all_connections = response.items
+                elif hasattr(response, 'data'):
+                    all_connections = response.data
+                elif hasattr(response, '__iter__'):
+                    all_connections = list(response)
+
+                print(f"📋 Got {len(all_connections)} total connections from Composio")
+
+                # Filter and delete matching connections
+                deleted_count = 0
+                for conn in all_connections:
+                    conn_entity = getattr(conn, 'entityId', None) or getattr(conn, 'entity_id', None) or getattr(conn, 'userId', None) or getattr(conn, 'user_id', None)
+
+                    if conn_entity == entity_id:
+                        conn_app = None
+                        if hasattr(conn, 'toolkit') and conn.toolkit:
+                            conn_app = getattr(conn.toolkit, 'slug', None)
+                        elif hasattr(conn, 'integration') and conn.integration:
+                            conn_app = getattr(conn.integration, 'slug', None)
+                        elif hasattr(conn, 'app'):
+                            conn_app = conn.app
+
+                        if conn_app and conn_app.upper() == tool_name.upper():
+                            conn_id = getattr(conn, 'id', None)
+                            if conn_id:
+                                print(f"🗑️  Deleting connection {conn_id} (app={conn_app}, entity={conn_entity})")
+                                try:
+                                    self.composio_client.connected_accounts.delete(connection_id=conn_id)
+                                    deleted_count += 1
+                                    print(f"✅ Deleted connection {conn_id}")
+                                except Exception as del_err:
+                                    print(f"❌ Failed to delete {conn_id}: {del_err}")
+
+                print(f"🧹 Deleted {deleted_count} ghost connection(s)")
+
+            except Exception as list_err:
+                print(f"❌ Failed to list connections for deletion: {list_err}")
+
+        except Exception as e:
+            print(f"❌ Error in _delete_all_connections_for_entity: {e}")
+            import traceback
+            traceback.print_exc()
 
     def get_connected_tools(self) -> List[str]:
         """
