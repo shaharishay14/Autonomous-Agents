@@ -383,6 +383,65 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                 if inactive_deleted > 0:
                     print(f"🗑️  Cleaned up {inactive_deleted} inactive connection(s)")
 
+                # Cleanup: Delete dangling connections in Composio
+                # Get active connections from database (our source of truth)
+                db_active_connections = set(
+                    ComposioConnection.objects.filter(
+                        user=request.user,
+                        is_active=True,
+                        deleted_at__isnull=True
+                    ).values_list('tool_name', flat=True)
+                )
+
+                # Get ALL connections from Composio for this user (including non-ACTIVE ones)
+                try:
+                    all_composio_connections = agent_service.composio_client.connected_accounts.list()
+                    if hasattr(all_composio_connections, 'items'):
+                        all_composio_connections = all_composio_connections.items
+                    elif hasattr(all_composio_connections, 'data'):
+                        all_composio_connections = all_composio_connections.data
+                    elif hasattr(all_composio_connections, '__iter__'):
+                        all_composio_connections = list(all_composio_connections)
+
+                    dangling_deleted = 0
+                    for conn in all_composio_connections:
+                        # Check if this connection belongs to current user
+                        conn_entity = None
+                        if hasattr(conn, 'entityId'): conn_entity = conn.entityId
+                        elif hasattr(conn, 'entity_id'): conn_entity = conn.entity_id
+                        elif hasattr(conn, 'userId'): conn_entity = conn.userId
+                        elif hasattr(conn, 'user_id'): conn_entity = conn.user_id
+
+                        if conn_entity != entity_id:
+                            continue  # Not this user's connection
+
+                        # Get tool name
+                        tool_name = "Unknown"
+                        if hasattr(conn, 'toolkit') and conn.toolkit:
+                            tool_name = getattr(conn.toolkit, 'slug', 'Unknown').upper()
+
+                        # Get connection ID
+                        conn_id = None
+                        if hasattr(conn, 'id'): conn_id = conn.id
+                        elif hasattr(conn, 'connectionId'): conn_id = conn.connectionId
+
+                        # If this connection is NOT in our active database, delete it from Composio
+                        if tool_name != "Unknown" and tool_name not in db_active_connections:
+                            try:
+                                if conn_id:
+                                    print(f"🗑️  Deleting dangling Composio connection: {tool_name} (ID: {conn_id})")
+                                    agent_service.composio_client.connected_accounts.delete(conn_id)
+                                    dangling_deleted += 1
+                                    print(f"✅ Deleted dangling connection: {tool_name}")
+                            except Exception as e:
+                                print(f"❌ Failed to delete dangling connection {tool_name}: {e}")
+
+                    if dangling_deleted > 0:
+                        print(f"🗑️  Cleaned up {dangling_deleted} dangling Composio connection(s)")
+
+                except Exception as e:
+                    print(f"⚠️  Could not clean up dangling connections: {e}")
+
                 # Build a map of tool_name -> connection info (is_active, connection_id)
                 # Exclude soft-deleted connections from the active list
                 connections = ComposioConnection.objects.filter(
