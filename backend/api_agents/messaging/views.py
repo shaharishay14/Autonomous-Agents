@@ -75,8 +75,10 @@ def connect_telegram_bot(request, agent_id):
             channel.last_error = ''
             channel.save()
 
-        # Set webhook URL
-        webhook_url = f"{request.scheme}://{request.get_host()}/api/telegram/webhook/{agent_id}/"
+        # Set webhook URL (always use HTTPS for production)
+        host = request.get_host()
+        # Force HTTPS for webhook (Telegram requires HTTPS)
+        webhook_url = f"https://{host}/api/telegram/webhook/{agent_id}/"
 
         try:
             set_webhook(bot_token, webhook_url)
