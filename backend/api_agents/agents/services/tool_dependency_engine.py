@@ -133,6 +133,9 @@ class ToolDependencyEngine:
         """
         Enforce tool dependencies based on selected tools and connected apps.
 
+        IMPORTANT: Only adds dependency tools when the original selected_tools
+        are non-empty. This prevents adding irrelevant tools when AI returns empty.
+
         Args:
             selected_tools: List of tool slugs already selected
             connected_apps: List of connected app names (e.g., ["GMAIL", "GOOGLEDRIVE"])
@@ -144,6 +147,13 @@ class ToolDependencyEngine:
         apps_set = set(app.upper() for app in connected_apps)
 
         print(f"🔍 Enforcing dependencies for {len(tools_set)} tools across {len(apps_set)} apps")
+
+        # === FIX: Only enforce dependencies if tools were actually selected ===
+        # If AI returned empty tools [], don't add any dependencies
+        # This prevents Calendar tools being added for stock queries
+        if not selected_tools:
+            print(f"  ⏭️  No tools selected by AI - skipping dependency enforcement")
+            return []
 
         # Check each dependency rule
         for rule_name, rule in self.dependency_rules.items():
