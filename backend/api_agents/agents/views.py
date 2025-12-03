@@ -974,6 +974,36 @@ class AgentViewSet(viewsets.ModelViewSet):
         )
 
     @extend_schema(
+        tags=['messaging'],
+        operation_id='agents_telegram_connect',
+        summary='Connect Telegram bot to agent',
+        request=ConnectTelegramBotSerializer,
+        responses=MessagingChannelSerializer,
+        description='Connect a Telegram bot to an agent by providing the bot token. The webhook will be automatically set up.'
+    )
+    @action(detail=True, methods=['post'], url_path='telegram/connect')
+    def telegram_connect(self, request, pk=None):
+        """Connect a Telegram bot to an agent"""
+        from ..messaging.views import connect_telegram_bot
+        # Delegate to the messaging views function
+        return connect_telegram_bot(request, agent_id=pk)
+
+    @extend_schema(
+        tags=['messaging'],
+        operation_id='agents_messaging_disconnect',
+        summary='Disconnect messaging channel from agent',
+        request=DisconnectMessagingChannelSerializer,
+        responses={200: OpenApiResponse(description='Channel disconnected successfully')},
+        description='Disconnect a messaging channel (Telegram or WhatsApp) from an agent. This will delete the webhook and remove the connection.'
+    )
+    @action(detail=True, methods=['post'], url_path='messaging/disconnect')
+    def messaging_disconnect(self, request, pk=None):
+        """Disconnect a messaging channel from an agent"""
+        from ..messaging.views import disconnect_messaging_channel
+        # Delegate to the messaging views function
+        return disconnect_messaging_channel(request, agent_id=pk)
+
+    @extend_schema(
         tags=['agents'],
         operation_id='agents_chat_create',
         summary='Chat with agent',

@@ -29,6 +29,7 @@ from .. import serializers
     responses=MessagingChannelSerializer,
     description='Connect a Telegram bot to an agent by providing the bot token. The webhook will be automatically set up.'
 )
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def connect_telegram_bot(request, agent_id):
@@ -129,6 +130,7 @@ def connect_telegram_bot(request, agent_id):
     ],
     description='Disconnect a messaging channel (Telegram or WhatsApp) from an agent. This will delete the webhook and remove the connection.'
 )
+@csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def disconnect_messaging_channel(request, agent_id):
