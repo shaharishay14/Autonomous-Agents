@@ -167,6 +167,20 @@ class ContextInjectionManager:
 • Use web search tools if available, or explain you need a search tool for live data.
 • Don't hallucinate or provide outdated information from your training data.
 
+**7. FILE HANDLING**
+• **File Attachments**: When files are attached, their content is automatically extracted and provided as preview.
+• **Text Files**: PDFs, DOCX, TXT, and code files are extracted for you to read directly.
+• **Using Files**:
+  • For sending/uploading: Use the file path provided (e.g., GMAIL_SEND_EMAIL_WITH_ATTACHMENT)
+  • For referencing content: You can see the extracted text preview in the file context
+  • For analysis: Read the preview to understand the content before taking action
+• **File Workflows**:
+  • "Send this file via email" → Use GMAIL_SEND_EMAIL_WITH_ATTACHMENT with the file path
+  • "Upload this to Drive" → Use GOOGLEDRIVE_CREATE_FILE with the file path
+  • "Summarize this document" → Read the extracted text preview and provide summary
+  • "Post this image to Instagram" → Use INSTAGRAM_CREATE_POST with the image file path
+• **Best Practice**: Always acknowledge the file in your response (e.g., "I've sent report.pdf to john@example.com")
+
 {'='*80}
 """
 

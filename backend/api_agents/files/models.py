@@ -13,6 +13,20 @@ class FileAttachment(models.Model):
     is_temporary = models.BooleanField(default=False, help_text="If True, file will be auto-deleted after being used in a message")
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
+    # Content extraction fields
+    extracted_text = models.TextField(blank=True, null=True, help_text="Extracted text content for searchable files (PDFs, DOCX, TXT, code)")
+    extraction_status = models.CharField(
+        max_length=20,
+        default='pending',
+        choices=[
+            ('pending', 'Pending'),
+            ('success', 'Success'),
+            ('failed', 'Failed'),
+            ('not_applicable', 'Not Applicable')
+        ],
+        help_text="Status of text extraction process"
+    )
+
     class Meta:
         ordering = ['-uploaded_at']
 

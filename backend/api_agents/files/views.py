@@ -124,8 +124,21 @@ class FileAttachmentViewSet(viewsets.ModelViewSet):
                 is_temporary=is_temporary
             )
 
+            # Extract text content from file
+            from ..files.content_extractor import get_content_extractor
+            extractor = get_content_extractor()
+            extracted_text, extraction_status = extractor.extract(
+                file_content=file_content,
+                filename=file.name,
+                mime_type=file.content_type or 'application/octet-stream'
+            )
+            attachment.extracted_text = extracted_text
+            attachment.extraction_status = extraction_status
+            attachment.save()
+
             temp_status = " (TEMPORARY)" if is_temporary else ""
-            print(f"✅ File uploaded successfully{temp_status}: ID={attachment.id}, Agent={agent.name}, Size={file.size} bytes")
+            extraction_info = f", Extraction: {extraction_status}" if extraction_status != 'pending' else ""
+            print(f"✅ File uploaded successfully{temp_status}: ID={attachment.id}, Agent={agent.name}, Size={file.size} bytes{extraction_info}")
 
             serializer = self.get_serializer(attachment)
             return Response(serializer.data, status=status.HTTP_201_CREATED)

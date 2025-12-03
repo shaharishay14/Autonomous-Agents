@@ -286,12 +286,20 @@ class AgentService:
             if file_attachments:
                 file_context = "\n\n📎 **Attached Files:**\n"
                 for file_info in file_attachments:
-                    file_context += f"- **{file_info['filename']}**\n"
-                    file_context += f"  Path: `{file_info['file_path']}`\n"
-                    file_context += f"  Size: {file_info['size']} bytes\n"
-                    file_context += f"  Type: {file_info['mime_type']}\n"
+                    file_context += f"\n**{file_info['filename']}** ({file_info['mime_type']}, {file_info['size']} bytes)\n"
+                    file_context += f"  📍 Path: `{file_info['file_path']}`\n"
+
+                    # Add extracted text preview if available
+                    if file_info.get('extraction_status') == 'success' and file_info.get('extracted_text'):
+                        preview = file_info['extracted_text'][:800]  # First 800 chars
+                        file_context += f"  📝 Content Preview:\n```\n{preview}\n```\n"
+                        if len(file_info['extracted_text']) > 800:
+                            file_context += f"  _(Total: {len(file_info['extracted_text'])} characters)_\n"
+                    elif file_info.get('extraction_status') == 'not_applicable':
+                        file_context += f"  ℹ️  Binary file (image/video/audio)\n"
+
                 enhanced_message += file_context
-                print(f"📎 Added {len(file_attachments)} file(s) to Composio context")
+                print(f"📎 Added context for {len(file_attachments)} file(s) to Composio prompt")
 
             composio_agent = ComposioAgent(
                 name=agent_model.name,
@@ -378,7 +386,7 @@ class AgentService:
                 await callback('error', {'error': str(e)})
             return await self._chat_without_tools(agent_model, message, chat_history, callback)
 
-    async def _chat_with_agent_tools(self, agent_model, message: str, chat_history: List[Dict[str, str]] = None, callback=None) -> str:
+    async def _chat_with_agent_tools(self, agent_model, message: str, chat_history: List[Dict[str, str]] = None, callback=None, file_attachments: List[Dict] = None) -> str:
         """
         Runs chat with agent-specific tools (weather, calculator, etc.).
         Uses OpenAI function calling to execute tools.
@@ -388,6 +396,7 @@ class AgentService:
             message: User message
             chat_history: Previous chat messages
             callback: Optional async callback function for streaming updates
+            file_attachments: Optional list of file attachment dictionaries
         """
         if not self.openai_client:
             return "OpenAI client not configured"
@@ -418,13 +427,35 @@ class AgentService:
             # Build enhanced prompt with context
             enhanced_prompt = agent_model.prompt + "\n" + injected_context
 
+            # === ADD FILE CONTEXT TO MESSAGE ===
+            # If files are attached, add file information to the message
+            enhanced_message = message
+            if file_attachments:
+                file_context = "\n\n📎 **Attached Files:**\n"
+                for file_info in file_attachments:
+                    file_context += f"\n**{file_info['filename']}** ({file_info['mime_type']}, {file_info['size']} bytes)\n"
+                    file_context += f"  📍 Path: `{file_info['file_path']}`\n"
+
+                    # Add extracted text preview if available
+                    if file_info.get('extraction_status') == 'success' and file_info.get('extracted_text'):
+                        preview = file_info['extracted_text'][:800]  # First 800 chars
+                        file_context += f"  📝 Content Preview:\n```\n{preview}\n```\n"
+                        if len(file_info['extracted_text']) > 800:
+                            file_context += f"  _(Total: {len(file_info['extracted_text'])} characters)_\n"
+                    elif file_info.get('extraction_status') == 'not_applicable':
+                        file_context += f"  ℹ️  Binary file (image/video/audio)\n"
+
+                enhanced_message = message + file_context
+                print(f"📎 Added context for {len(file_attachments)} file(s) to agent tools prompt")
+            # ====================================
+
             # Build messages with enhanced prompt and history
             if chat_history:
                 messages = [{"role": "system", "content": enhanced_prompt}] + chat_history
             else:
                 messages = [
                     {"role": "system", "content": enhanced_prompt},
-                    {"role": "user", "content": message}
+                    {"role": "user", "content": enhanced_message}
                 ]
 
             print(f"🔧 Chat with {len(agent_tools_functions)} agent tools enabled")

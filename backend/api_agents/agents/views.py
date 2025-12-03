@@ -1058,8 +1058,21 @@ class AgentViewSet(viewsets.ModelViewSet):
                         mime_type=content_type,
                         is_temporary=True
                     )
+
+                    # Extract text content from fetched file
+                    from api_agents.files.content_extractor import get_content_extractor
+                    extractor = get_content_extractor()
+                    extracted_text, extraction_status = extractor.extract(
+                        file_content=response.content,
+                        filename=filename,
+                        mime_type=content_type
+                    )
+                    attachment.extracted_text = extracted_text
+                    attachment.extraction_status = extraction_status
+                    attachment.save()
+
                     inline_files.append(attachment)
-                    print(f"✅ Fetched and attached: {filename} ({len(response.content)} bytes)")
+                    print(f"✅ Fetched and attached: {filename} ({len(response.content)} bytes, Extraction: {extraction_status})")
                     message += f"\n\n[Auto-fetched file from URL: {filename}]"
 
                 except Exception as e:
@@ -1095,8 +1108,21 @@ class AgentViewSet(viewsets.ModelViewSet):
                     mime_type=file_obj.content_type or 'application/octet-stream',
                     is_temporary=True  # 👈 Automatically mark as temporary
                 )
+
+                # Extract text content from file
+                from api_agents.files.content_extractor import get_content_extractor
+                extractor = get_content_extractor()
+                extracted_text, extraction_status = extractor.extract(
+                    file_content=file_content,
+                    filename=file_obj.name,
+                    mime_type=file_obj.content_type or 'application/octet-stream'
+                )
+                attachment.extracted_text = extracted_text
+                attachment.extraction_status = extraction_status
+                attachment.save()
+
                 temp_file_ids.append(attachment.id)
-                print(f"📎 Inline file uploaded as temporary: {file_obj.name} (ID={attachment.id})")
+                print(f"📎 Inline file uploaded as temporary: {file_obj.name} (ID={attachment.id}, Extraction: {extraction_status})")
             except Exception as e:
                 print(f"❌ Error uploading inline file {file_obj.name}: {e}")
                 # Continue with other files
@@ -1303,7 +1329,9 @@ class AgentViewSet(viewsets.ModelViewSet):
                                     'filename': file_obj.original_filename,
                                     'file_path': file_path,
                                     'size': file_obj.file_size,
-                                    'mime_type': file_obj.mime_type
+                                    'mime_type': file_obj.mime_type,
+                                    'extracted_text': file_obj.extracted_text,
+                                    'extraction_status': file_obj.extraction_status
                                 })
                                 print(f"📄 Wrote file to disk: {file_path}")
                         except Exception as e:
@@ -1342,7 +1370,8 @@ class AgentViewSet(viewsets.ModelViewSet):
                                 agent_model=agent,
                                 message=message,
                                 chat_history=chat_history_formatted,
-                                callback=stream_callback
+                                callback=stream_callback,
+                                file_attachments=file_attachments_for_composio if file_attachments_for_composio else None
                             )
                         else:
                             # No tools needed. Fallback to basic chat.
