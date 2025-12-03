@@ -583,6 +583,7 @@ class AgentService:
             initiate_params = {
                 "auth_config_id": auth_config_id,
                 "user_id": f"user_{self.user.id}",
+                "allow_multiple": True,  # Allow multiple connections to bypass Composio's duplicate check
             }
 
             # Add callback URL if provided
@@ -605,7 +606,7 @@ class AgentService:
                 print(f"🔧 Initiating {tool_name} with additional fields: {list(additional_fields.keys())}")
 
             try:
-                print(f"🔄 Initiating {tool_name} with auth_config_id: {auth_config_id}")
+                print(f"🔄 Initiating {tool_name} with auth_config_id: {auth_config_id}, allow_multiple=True")
                 response = self.composio_client.connected_accounts.initiate(**initiate_params)
 
                 # Log the full response for debugging
@@ -658,45 +659,58 @@ class AgentService:
 
                 error_message = str(e)
 
-                # Handle "Multiple connected accounts" error with Adopt or Kill strategy
+                # Handle "Multiple connected accounts" error with cleanup strategy
+                # NOTE: With allow_multiple=True, this should rarely/never happen
+                # But we keep this as a safety fallback
                 if "Multiple connected accounts" in error_message or "ComposioMultipleConnectedAccountsError" in type(e).__name__:
-                    print(f"🔍 Detected multiple connections issue - attempting to resolve...")
+                    print(f"⚠️  UNEXPECTED: Got multiple connections error despite allow_multiple=True")
+                    print(f"🔍 Attempting fallback cleanup strategy...")
 
                     try:
                         # Get existing connections for this user/tool from Composio
                         entity_id = f"user_{self.user.id}"
-                        existing_connections = self._get_composio_connections_for_tool(entity_id, tool_name)
 
-                        if existing_connections:
-                            print(f"📋 Found {len(existing_connections)} existing connection(s) in Composio")
+                        # Try to clean up duplicates using our new method
+                        cleanup_result = self._cleanup_duplicate_connections(entity_id, tool_name)
 
-                            # Try to adopt the first valid connection
-                            adopted = False
-                            for conn in existing_connections:
-                                if self._try_adopt_connection(conn, tool_name):
-                                    print(f"✅ Adopted existing connection for {tool_name}")
-                                    adopted = True
-                                    break
-
-                            # If adoption succeeded, return success
-                            if adopted:
-                                return {
-                                    "success": True,
-                                    "adopted": True,
-                                    "message": f"Connected to {tool_name} using existing account"
-                                }
-
-                            # If no valid connection found, delete all zombie connections
-                            print(f"🗑️  No valid connections found - deleting zombie connections...")
-                            for conn in existing_connections:
-                                self._delete_composio_connection(conn)
+                        if cleanup_result.get('cleaned'):
+                            print(f"✅ Cleanup successful: kept {cleanup_result['kept_connection_id']}, deleted {cleanup_result['deleted_count']}")
+                            print(f"🔄 Retrying initiate after cleanup...")
                         else:
-                            # No connections found via list(), but Composio says they exist
-                            # These might be ghost connections with non-ACTIVE status
-                            # Try to delete them using the entity_id directly
-                            print(f"⚠️  No connections returned by list(), but Composio says they exist")
-                            print(f"🧹 Attempting to delete ghost connections using entity_id...")
-                            self._delete_all_connections_for_entity(entity_id, tool_name)
+                            print(f"⚠️  Cleanup didn't find/remove duplicates: {cleanup_result.get('reason', 'unknown')}")
+                            print(f"🔄 Trying legacy cleanup method...")
+
+                            # Fallback to old method for ghost connections
+                            existing_connections = self._get_composio_connections_for_tool(entity_id, tool_name)
+
+                            if existing_connections:
+                                print(f"📋 Found {len(existing_connections)} existing connection(s) in Composio")
+
+                                # Try to adopt the first valid connection
+                                adopted = False
+                                for conn in existing_connections:
+                                    if self._try_adopt_connection(conn, tool_name):
+                                        print(f"✅ Adopted existing connection for {tool_name}")
+                                        adopted = True
+                                        break
+
+                                # If adoption succeeded, return success
+                                if adopted:
+                                    return {
+                                        "success": True,
+                                        "adopted": True,
+                                        "message": f"Connected to {tool_name} using existing account"
+                                    }
+
+                                # If no valid connection found, delete all zombie connections
+                                print(f"🗑️  No valid connections found - deleting zombie connections...")
+                                for conn in existing_connections:
+                                    self._delete_composio_connection(conn)
+                            else:
+                                # Ghost connections that don't appear in list()
+                                print(f"⚠️  No connections returned by list(), but Composio says they exist")
+                                print(f"🧹 Attempting to delete ghost connections...")
+                                self._delete_all_connections_for_entity(entity_id, tool_name)
 
                         # Retry the connection after cleanup
                         print(f"🔄 Retrying connection after cleanup...")
@@ -957,6 +971,111 @@ class AgentService:
             print(f"❌ Error in _delete_all_connections_for_entity: {e}")
             import traceback
             traceback.print_exc()
+
+    def _cleanup_duplicate_connections(self, entity_id: str, tool_name: str, keep_connection_id: str = None):
+        """
+        Deletes all duplicate connections for a user/tool, keeping only one.
+
+        This enforces the constraint: ONE connection per tool per user.
+
+        Args:
+            entity_id: The user's entity ID (e.g., "user_123")
+            tool_name: The tool name (e.g., "GMAIL")
+            keep_connection_id: Optional specific connection ID to keep. If None, keeps the newest.
+
+        Returns:
+            Dict with cleanup results: {
+                'cleaned': bool,
+                'kept_connection_id': str,
+                'deleted_count': int
+            }
+        """
+        try:
+            print(f"🧹 Cleaning up duplicate connections for {tool_name}...")
+
+            # Get all connections for this user/tool
+            all_connections = self._get_composio_connections_for_tool(entity_id, tool_name)
+
+            if not all_connections:
+                print(f"ℹ️  No connections found for {tool_name}")
+                return {'cleaned': False, 'deleted_count': 0, 'reason': 'no_connections'}
+
+            if len(all_connections) == 1:
+                kept_id = getattr(all_connections[0], 'id', 'unknown')
+                print(f"ℹ️  Only 1 connection found for {tool_name}, no cleanup needed")
+                return {'cleaned': False, 'kept_connection_id': kept_id, 'deleted_count': 0, 'reason': 'only_one'}
+
+            print(f"⚠️  Found {len(all_connections)} connections for {tool_name} - cleaning up duplicates...")
+
+            # Determine which connection to keep
+            connection_to_keep = None
+
+            if keep_connection_id:
+                # Keep the specified connection
+                for conn in all_connections:
+                    conn_id = getattr(conn, 'id', None)
+                    if conn_id == keep_connection_id:
+                        connection_to_keep = conn
+                        print(f"🎯 Keeping specified connection: {keep_connection_id}")
+                        break
+
+            if not connection_to_keep:
+                # Keep the newest connection (by creation timestamp)
+                # Sort by createdAt or created_at field (most recent first)
+                try:
+                    sorted_connections = sorted(
+                        all_connections,
+                        key=lambda c: getattr(c, 'createdAt', '') or getattr(c, 'created_at', '') or '',
+                        reverse=True  # Newest first
+                    )
+                    connection_to_keep = sorted_connections[0]
+                    keep_id = getattr(connection_to_keep, 'id', 'unknown')
+                    print(f"🎯 Keeping newest connection: {keep_id}")
+                except Exception as sort_err:
+                    # Fallback: just keep the first one
+                    print(f"⚠️  Couldn't sort by timestamp ({sort_err}), keeping first connection")
+                    connection_to_keep = all_connections[0]
+                    keep_id = getattr(connection_to_keep, 'id', 'unknown')
+                    print(f"🎯 Keeping first connection: {keep_id}")
+
+            # Delete all other connections
+            deleted_count = 0
+            deleted_ids = []
+            keep_conn_id = getattr(connection_to_keep, 'id', None)
+
+            for conn in all_connections:
+                conn_id = getattr(conn, 'id', None)
+                if conn_id and conn_id != keep_conn_id:
+                    try:
+                        print(f"🗑️  Deleting duplicate connection: {conn_id}")
+                        self._delete_composio_connection(conn)
+                        deleted_count += 1
+                        deleted_ids.append(conn_id)
+                    except Exception as del_err:
+                        print(f"❌ Failed to delete connection {conn_id}: {del_err}")
+                        # Continue trying to delete other connections
+
+            print(f"✅ Cleanup complete: Kept {keep_conn_id}, deleted {deleted_count} duplicate(s)")
+
+            # Try to adopt the kept connection in local database
+            try:
+                self._try_adopt_connection(connection_to_keep, tool_name)
+            except Exception as adopt_err:
+                print(f"⚠️  Failed to adopt kept connection: {adopt_err}")
+
+            return {
+                'cleaned': True,
+                'kept_connection_id': keep_conn_id,
+                'deleted_count': deleted_count,
+                'deleted_ids': deleted_ids
+            }
+
+        except Exception as e:
+            print(f"❌ Error in _cleanup_duplicate_connections: {e}")
+            import traceback
+            traceback.print_exc()
+            # Don't raise - cleanup failure shouldn't break the flow
+            return {'cleaned': False, 'deleted_count': 0, 'error': str(e)}
 
     def get_connected_tools(self) -> List[str]:
         """

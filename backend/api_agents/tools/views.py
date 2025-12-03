@@ -760,6 +760,7 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
     def check_connections(self, request):
         """
         Syncs connection status from Composio to the local database.
+        Also cleans up any duplicate connections found in Composio.
         """
         try:
             agent_service = AgentService(request.user)
@@ -770,6 +771,28 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
             # Update our database to reflect the ground truth
             entity_id = f"user_{request.user.id}"
 
+            # PHASE 1: Clean up duplicate connections in Composio
+            # Group connections by tool name to detect duplicates
+            tools_to_check = set(c['tool_name'].upper() for c in connection_details)
+
+            for tool_name in tools_to_check:
+                # Count how many connections exist for this tool
+                tool_connections = [c for c in connection_details if c['tool_name'].upper() == tool_name]
+                if len(tool_connections) > 1:
+                    print(f"⚠️  Found {len(tool_connections)} connections for {tool_name} in Composio")
+                    print(f"🧹 Triggering duplicate cleanup...")
+                    cleanup_result = agent_service._cleanup_duplicate_connections(entity_id, tool_name)
+
+                    if cleanup_result.get('cleaned'):
+                        print(f"✅ Cleaned up {tool_name}: kept {cleanup_result['kept_connection_id']}, deleted {cleanup_result['deleted_count']}")
+
+                        # Re-fetch connection details after cleanup
+                        connection_details = agent_service.get_connection_details()
+                        break  # Re-start the loop with fresh data
+                    else:
+                        print(f"ℹ️  Cleanup skipped for {tool_name}: {cleanup_result.get('reason', 'unknown')}")
+
+            # PHASE 2: Sync to local database
             for conn_detail in connection_details:
                 # Get existing connection to preserve auth_config_id if it exists
                 existing_conn = ComposioConnection.objects.filter(
