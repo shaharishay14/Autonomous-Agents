@@ -374,26 +374,48 @@ class AgentService:
                 # No agent tools enabled, fall back to basic chat
                 return await self._chat_without_tools(agent_model, message, chat_history, callback)
 
-            # Build messages with system prompt and history
+            # === USE CONTEXT INJECTION MANAGER ===
+            # Add same context as Composio tools for consistency
+            context_manager = get_context_manager()
+            connected_apps = agent_model.app_connections if hasattr(agent_model, 'app_connections') else []
+            agent_tools_list = agent_model.agent_tools if hasattr(agent_model, 'agent_tools') else []
+
+            injected_context = context_manager.build_complete_context(
+                user=self.user,
+                agent_model=agent_model,
+                connected_apps=connected_apps,
+                agent_tools=agent_tools_list,
+                include_app_guidance=False,  # Don't include Composio app guidance for agent tools
+                include_agent_tools_guidance=True  # Include agent tools guidance
+            )
+
+            # Build enhanced prompt with context
+            enhanced_prompt = agent_model.prompt + "\n" + injected_context
+
+            # Build messages with enhanced prompt and history
             if chat_history:
-                messages = [{"role": "system", "content": agent_model.prompt}] + chat_history
+                messages = [{"role": "system", "content": enhanced_prompt}] + chat_history
             else:
                 messages = [
-                    {"role": "system", "content": agent_model.prompt},
+                    {"role": "system", "content": enhanced_prompt},
                     {"role": "user", "content": message}
                 ]
 
             print(f"🔧 Chat with {len(agent_tools_functions)} agent tools enabled")
 
+            # === ADD TIMEOUT (60 seconds) ===
             # Make initial API call with function definitions
-            # ✅ No sync_to_async wrapper needed
-            response = await self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                tools=agent_tools_functions,
-                tool_choice="auto",
-                temperature=0.7,
-                max_completion_tokens=1500
+            response = await asyncio.wait_for(
+                self.openai_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=messages,
+                    tools=agent_tools_functions,
+                    tool_choice="auto",
+                    temperature=0.7,
+                    max_completion_tokens=1500,
+                    timeout=45  # OpenAI client timeout
+                ),
+                timeout=60  # asyncio timeout (outer)
             )
 
             response_message = response.choices[0].message
@@ -455,13 +477,18 @@ class AgentService:
             if callback:
                 await callback('status', {'status': 'responding', 'message': 'Generating response...'})
 
+            # === ADD TIMEOUT (60 seconds) ===
             # ✅ Use streaming for final response with async for
-            final_response = await self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                temperature=0.7,
-                max_completion_tokens=1500,
-                stream=True
+            final_response = await asyncio.wait_for(
+                self.openai_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=messages,
+                    temperature=0.7,
+                    max_completion_tokens=1500,
+                    stream=True,
+                    timeout=45  # OpenAI client timeout
+                ),
+                timeout=60  # asyncio timeout (outer)
             )
 
             # Collect streaming content
@@ -505,6 +532,12 @@ class AgentService:
 
             return full_content
 
+        except asyncio.TimeoutError:
+            print("⏱️ Agent tools chat timed out after 60 seconds")
+            if callback:
+                await callback('error', {'error': 'Request timed out after 60 seconds'})
+            return "Sorry, the request took too long and timed out. Please try again with a simpler query."
+
         except Exception as e:
             print(f"Error in agent tools chat: {e}")
             import traceback
@@ -518,9 +551,13 @@ class AgentService:
         Runs chat with BOTH Composio tools AND agent tools.
         This is the most complex scenario where the agent has both types of tools enabled.
 
-        Strategy: Use OpenAI function calling for agent tools, and Composio runner for Composio tools.
-        For now, we'll prioritize based on tool selection - if Composio tools are selected, use Composio;
-        if not, use agent tools.
+        Strategy:
+        1. If Composio tools are selected, use Composio (handles connected apps)
+        2. If no Composio tools selected BUT agent tools are available, use agent tools
+        3. If neither, fallback to basic chat
+
+        This prioritization ensures agent tools (like yahoo_finance, weather, calculator)
+        are used when Composio doesn't have relevant tools.
 
         Args:
             agent_model: Agent model instance
@@ -529,13 +566,27 @@ class AgentService:
             chat_history: Previous chat messages
             callback: Optional async callback function for streaming updates
         """
-        # For now, if we have Composio tools selected, use Composio
-        # Agent tools will be handled separately
-        if composio_tool_slugs:
+        # Smart routing: prioritize based on what tools are available
+        has_composio_tools = composio_tool_slugs and len(composio_tool_slugs) > 0
+        has_agent_tools = agent_model.agent_tools and len(agent_model.agent_tools) > 0
+
+        print(f"🔀 Mixed tools routing: Composio={has_composio_tools}, Agent={has_agent_tools}")
+
+        if has_composio_tools and has_agent_tools:
+            # Both available - prefer Composio for connected apps
+            print("  → Using Composio tools (connected apps take precedence)")
             return await self._chat_with_composio(agent_model, message, composio_tool_slugs, chat_history, callback)
-        elif agent_model.agent_tools:
+        elif has_composio_tools:
+            # Only Composio
+            print("  → Using Composio tools only")
+            return await self._chat_with_composio(agent_model, message, composio_tool_slugs, chat_history, callback)
+        elif has_agent_tools:
+            # Only agent tools (THIS FIXES THE STOCK PRICE ISSUE)
+            print("  → Using agent tools only (no relevant Composio tools)")
             return await self._chat_with_agent_tools(agent_model, message, chat_history, callback)
         else:
+            # No tools at all
+            print("  → No tools available, using basic chat")
             return await self._chat_without_tools(agent_model, message, chat_history, callback)
 
     def authenticate_tool(self, tool_name: str, additional_fields: Dict[str, Any] = None, redirect_url: str = None) -> Dict[str, Any]:

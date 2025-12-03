@@ -2,12 +2,13 @@
 Context Injection Manager
 -------------------------
 Orchestrates the injection of all contextual information into agent prompts.
-Combines system context (date, user) with app-specific guidance.
+Combines system context (date, user) with app-specific guidance and agent tools guidance.
 """
 
 import datetime
 from typing import List, Dict, Any
 from .app_context_library import get_contexts_for_connected_apps
+from .agent_tools_context_library import get_contexts_for_agent_tools
 
 
 class ContextInjectionManager:
@@ -25,7 +26,9 @@ class ContextInjectionManager:
         user,
         agent_model,
         connected_apps: List[str] = None,
+        agent_tools: List[str] = None,
         include_app_guidance: bool = True,
+        include_agent_tools_guidance: bool = True,
         **kwargs
     ) -> str:
         """
@@ -35,7 +38,9 @@ class ContextInjectionManager:
             user: Django user instance
             agent_model: Agent model instance
             connected_apps: List of connected app names (e.g., ["GMAIL", "SLACK"])
-            include_app_guidance: Whether to include app-specific guidance
+            agent_tools: List of agent tool names (e.g., ["weather", "calculator", "yahoo_finance"])
+            include_app_guidance: Whether to include Composio app-specific guidance
+            include_agent_tools_guidance: Whether to include agent tools guidance
             **kwargs: Additional parameters
 
         Returns:
@@ -53,13 +58,19 @@ class ContextInjectionManager:
         if operational_rules:
             context_parts.append(operational_rules)
 
-        # 3. App-Specific Guidance
+        # 3. App-Specific Guidance (Composio connected apps)
         if include_app_guidance and connected_apps:
             app_context = get_contexts_for_connected_apps(connected_apps)
             if app_context:
                 context_parts.append(app_context)
 
-        # 4. Additional Custom Context
+        # 4. Agent Tools Guidance (weather, calculator, yahoo_finance, etc.)
+        if include_agent_tools_guidance and agent_tools:
+            agent_tools_context = get_contexts_for_agent_tools(agent_tools)
+            if agent_tools_context:
+                context_parts.append(agent_tools_context)
+
+        # 5. Additional Custom Context
         custom_context = kwargs.get('custom_context')
         if custom_context:
             context_parts.append(custom_context)
