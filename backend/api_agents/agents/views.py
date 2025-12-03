@@ -984,9 +984,73 @@ class AgentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='telegram/connect')
     def telegram_connect(self, request, pk=None):
         """Connect a Telegram bot to an agent"""
-        from ..messaging.views import connect_telegram_bot
-        # Delegate to the messaging views function
-        return connect_telegram_bot(request, agent_id=pk)
+        from ..messaging.telegram_utils import verify_bot_token, set_webhook, TelegramAPIError
+
+        try:
+            agent = self.get_object()
+
+            # Validate request data
+            serializer = ConnectTelegramBotSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            bot_token = serializer.validated_data['bot_token']
+
+            # Verify the bot token with Telegram API
+            try:
+                bot_info = verify_bot_token(bot_token)
+            except TelegramAPIError as e:
+                return Response(
+                    {'error': f'Invalid bot token: {str(e)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Check if channel already exists
+            channel, created = MessagingChannel.objects.get_or_create(
+                agent=agent,
+                platform='telegram',
+                defaults={
+                    'bot_token': bot_token,
+                    'bot_username': bot_info.get('username', ''),
+                    'status': 'active'
+                }
+            )
+
+            if not created:
+                # Update existing channel
+                channel.bot_token = bot_token
+                channel.bot_username = bot_info.get('username', '')
+                channel.status = 'active'
+                channel.last_error = ''
+                channel.save()
+
+            # Set webhook URL
+            webhook_url = f"{request.scheme}://{request.get_host()}/api/telegram/webhook/{pk}/"
+
+            try:
+                set_webhook(bot_token, webhook_url)
+                channel.webhook_url = webhook_url
+                channel.save()
+            except TelegramAPIError as e:
+                channel.status = 'error'
+                channel.last_error = str(e)
+                channel.save()
+                return Response(
+                    {'error': f'Failed to set webhook: {str(e)}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            return Response(
+                MessagingChannelSerializer(channel).data,
+                status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED
+            )
+
+        except Exception as e:
+            traceback.print_exc()
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @extend_schema(
         tags=['messaging'],
@@ -999,9 +1063,44 @@ class AgentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='messaging/disconnect')
     def messaging_disconnect(self, request, pk=None):
         """Disconnect a messaging channel from an agent"""
-        from ..messaging.views import disconnect_messaging_channel
-        # Delegate to the messaging views function
-        return disconnect_messaging_channel(request, agent_id=pk)
+        from ..messaging.telegram_utils import delete_webhook
+
+        try:
+            agent = self.get_object()
+
+            serializer = DisconnectMessagingChannelSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            platform = serializer.validated_data['platform']
+
+            try:
+                channel = MessagingChannel.objects.get(agent=agent, platform=platform)
+
+                # Delete webhook if Telegram
+                if platform == 'telegram' and channel.bot_token:
+                    delete_webhook(channel.bot_token)
+
+                # Delete the channel and all sessions
+                channel.delete()
+
+                return Response(
+                    {'message': f'{platform.capitalize()} channel disconnected successfully'},
+                    status=status.HTTP_200_OK
+                )
+
+            except MessagingChannel.DoesNotExist:
+                return Response(
+                    {'error': f'No {platform} channel found for this agent'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        except Exception as e:
+            traceback.print_exc()
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @extend_schema(
         tags=['agents'],
