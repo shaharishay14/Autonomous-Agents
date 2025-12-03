@@ -1024,6 +1024,8 @@ class AgentViewSet(viewsets.ModelViewSet):
         url_pattern = r'https?://(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)'
         urls = re.findall(url_pattern, message)
 
+        url_fetched_file_ids = []  # Track URL-fetched file IDs separately
+
         if urls:
             print(f"🔗 Detected {len(urls)} URL(s) in message")
             import requests
@@ -1071,7 +1073,8 @@ class AgentViewSet(viewsets.ModelViewSet):
                     attachment.extraction_status = extraction_status
                     attachment.save()
 
-                    inline_files.append(attachment)
+                    # Add to URL-fetched files list (already a FileAttachment model, not an uploaded file object)
+                    url_fetched_file_ids.append(attachment.id)
                     print(f"✅ Fetched and attached: {filename} ({len(response.content)} bytes, Extraction: {extraction_status})")
                     message += f"\n\n[Auto-fetched file from URL: {filename}]"
 
@@ -1127,8 +1130,8 @@ class AgentViewSet(viewsets.ModelViewSet):
                 print(f"❌ Error uploading inline file {file_obj.name}: {e}")
                 # Continue with other files
 
-        # Combine persistent file IDs (from DB) and temporary file IDs (inline uploads)
-        file_ids = persistent_file_ids + temp_file_ids
+        # Combine all file IDs: persistent files (from DB) + inline uploads + URL-fetched files
+        file_ids = persistent_file_ids + temp_file_ids + url_fetched_file_ids
         # =======================================
 
         # ===== CREDIT CHECK =====
