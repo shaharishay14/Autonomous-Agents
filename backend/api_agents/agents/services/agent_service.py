@@ -7,6 +7,7 @@ import asyncio
 from asgiref.sync import sync_to_async
 import json
 import datetime
+import random
 from typing import List, Dict, Any
 from pathlib import Path
 from composio import Composio
@@ -20,6 +21,25 @@ from .agent_tools_service import AgentToolsService
 from .context_injection_manager import get_context_manager
 from .tool_dependency_engine import get_tool_dependency_engine
 from .model_selection_strategy import get_model_selection_strategy
+
+
+# Fun, user-friendly status messages (no "Composio" mentioned)
+TOOL_LOADING_MESSAGES = [
+    "Gathering my tools... 🔧",
+    "Getting ready... ⚙️",
+    "Preparing to help... 🛠️",
+    "Loading capabilities... 💫",
+    "Warming up... 🔥",
+]
+
+PROCESSING_MESSAGES = [
+    "Working on it... 🤔",
+    "Let me think... 💭",
+    "Processing your request... ⚡",
+    "On it! Just a moment... 🚀",
+    "Crunching the data... 🧮",
+    "Making magic happen... ✨",
+]
 
 
 class AgentService:
@@ -221,7 +241,10 @@ class AgentService:
         """
         try:
             if callback:
-                await callback('status', {'status': 'tool_calling', 'message': 'Loading Composio tools...'})
+                await callback('status', {
+                    'status': 'tool_calling',
+                    'message': random.choice(TOOL_LOADING_MESSAGES)
+                })
             tools = await sync_to_async(self.composio_client.tools.get)(
                 user_id=self._get_entity_id(),
                 tools=specific_tools_slugs
@@ -285,7 +308,10 @@ class AgentService:
             # Send heartbeats during Composio runner execution (opaque operation)
             # Since we can't see inside the runner, emit periodic status updates
             if callback:
-                await callback('status', {'status': 'processing', 'message': 'Processing with Composio tools...'})
+                await callback('status', {
+                    'status': 'processing',
+                    'message': random.choice(PROCESSING_MESSAGES)
+                })
 
                 # Run the runner with periodic heartbeats
                 import time
