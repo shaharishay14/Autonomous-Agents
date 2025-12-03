@@ -78,7 +78,7 @@ def connect_telegram_bot(request, agent_id):
         # Set webhook URL (always use HTTPS for production)
         host = request.get_host()
         # Force HTTPS for webhook (Telegram requires HTTPS)
-        webhook_url = f"https://{host}/api/telegram/webhook/{agent_id}/"
+        webhook_url = f"https://{host}/api/messaging/telegram/webhook/{agent_id}/"
 
         try:
             set_webhook(bot_token, webhook_url)
@@ -291,7 +291,7 @@ def telegram_webhook(request, agent_id):
         send_typing_action(bot_token, chat_id)
 
         # Process message with agent
-        agent_service = AgentService(agent)
+        agent_service = AgentService(agent.user)
 
         # Get chat history for context
         previous_messages = ChatMessage.objects.filter(agent=agent).order_by('-created_at')[:10]
@@ -300,8 +300,45 @@ def telegram_webhook(request, agent_id):
             for msg in reversed(list(previous_messages))
         ]
 
-        # Generate response
-        response_content = agent_service.chat(text, chat_history)
+        # Generate response using async chat methods
+        import asyncio
+
+        async def generate_response():
+            # Determine which tools are available
+            has_composio_tools = bool(agent.app_connections)
+            has_agent_tools = bool(agent.agent_tools)
+
+            if has_composio_tools and has_agent_tools:
+                # Get Composio tool slugs
+                specific_tools_slugs = await agent_service.select_tools_for_prompt(text, agent.app_connections)
+                return await agent_service._chat_with_mixed_tools(
+                    agent_model=agent,
+                    message=text,
+                    composio_tool_slugs=specific_tools_slugs,
+                    chat_history=chat_history
+                )
+            elif has_composio_tools:
+                specific_tools_slugs = await agent_service.select_tools_for_prompt(text, agent.app_connections)
+                return await agent_service._chat_with_composio(
+                    agent_model=agent,
+                    message=text,
+                    specific_tools_slugs=specific_tools_slugs,
+                    chat_history=chat_history
+                )
+            elif has_agent_tools:
+                return await agent_service._chat_with_agent_tools(
+                    agent_model=agent,
+                    message=text,
+                    chat_history=chat_history
+                )
+            else:
+                return await agent_service._chat_without_tools(
+                    agent_model=agent,
+                    message=text,
+                    chat_history=chat_history
+                )
+
+        response_content = asyncio.run(generate_response())
 
         # Save assistant response
         ChatMessage.objects.create(

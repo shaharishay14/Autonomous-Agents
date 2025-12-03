@@ -1027,7 +1027,7 @@ class AgentViewSet(viewsets.ModelViewSet):
             # Set webhook URL (always use HTTPS for production)
             host = request.get_host()
             # Force HTTPS for webhook (Telegram requires HTTPS)
-            webhook_url = f"https://{host}/api/telegram/webhook/{pk}/"
+            webhook_url = f"https://{host}/api/messaging/telegram/webhook/{pk}/"
 
             try:
                 set_webhook(bot_token, webhook_url)
