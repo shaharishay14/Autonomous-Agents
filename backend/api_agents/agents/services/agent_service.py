@@ -6,6 +6,7 @@ import os
 import asyncio
 from asgiref.sync import sync_to_async
 import json
+import datetime
 from typing import List, Dict, Any
 from pathlib import Path
 from composio import Composio
@@ -16,6 +17,9 @@ from django.conf import settings
 from ...tools.composio_config import APP_SLUGS, TOP_SLUGS_BY_APP
 from ..tools_config import get_openai_functions_for_tools
 from .agent_tools_service import AgentToolsService
+from .context_injection_manager import get_context_manager
+from .tool_dependency_engine import get_tool_dependency_engine
+from .model_selection_strategy import get_model_selection_strategy
 
 
 class AgentService:
@@ -229,50 +233,29 @@ class AgentService:
                 print("DEBUG: Composio.tools.get returned no tools. Falling back.")
                 return await self._chat_without_tools(agent_model, message, chat_history, callback)
 
-            enhanced_instructions = agent_model.prompt
+            # === USE CONTEXT INJECTION MANAGER ===
+            # This replaces all hardcoded context with dynamic, app-specific context
+            context_manager = get_context_manager()
+            connected_apps = agent_model.app_connections if hasattr(agent_model, 'app_connections') else []
 
-            # === AUTONOMY & TOOL EXECUTION ENHANCEMENT ===
-            autonomy_instructions = (
-                "\n\n--- AUTONOMOUS OPERATION MODE ---\n"
-                "You are an autonomous AI assistant. When the user requests an action:\n"
-                "1. Execute the action immediately without asking for permission\n"
-                "2. Do not ask 'Would you like me to...' or 'Should I...'\n"
-                "3. Proceed directly with the task using the available tools\n"
-                "4. Only ask for clarification if critical information is missing (e.g., email recipient, file name)\n"
-                "5. After completing the action, provide a brief confirmation of what was done\n"
-                "6. If an error occurs, explain what happened and suggest a solution\n"
-                "7. Work efficiently - complete multi-step tasks in sequence without pausing for approval\n"
-                "\n"
-                "--- CRITICAL: TOOL USAGE vs TEXT SIMULATION ---\n"
-                "**YOU MUST USE TOOLS, NOT SIMULATE ACTIONS IN TEXT**\n"
-                "When you have a tool available for a task, you MUST call that tool.\n"
-                "DO NOT write simulated responses like:\n"
-                "  ❌ 'I'll send an email to user@example.com with subject...'\n"
-                "  ❌ 'Here's the email I would send: ...'\n"
-                "  ❌ 'I can help you send that email. The email would say...'\n"
-                "\n"
-                "INSTEAD, you MUST:\n"
-                "  ✅ Call GMAIL_SEND_EMAIL immediately with the parameters\n"
-                "  ✅ Execute the tool function without describing it first\n"
-                "  ✅ Let the tool output confirm the action was completed\n"
-                "\n"
-                "**Examples of CORRECT behavior:**\n"
-                "User: 'Send an email to john@example.com saying hello'\n"
-                "You: [Calls GMAIL_SEND_EMAIL tool with to='john@example.com', body='Hello'] → 'Email sent successfully to john@example.com'\n"
-                "\n"
-                "User: 'Search my drive for project files'\n"
-                "You: [Calls GOOGLEDRIVE_FIND_FILE tool with query='project'] → 'Found 3 files: ...'\n"
-                "\n"
-                "**REMEMBER:** If you have the tool, USE IT. Never simulate or describe the action.\n"
+            injected_context = context_manager.build_complete_context(
+                user=self.user,
+                agent_model=agent_model,
+                connected_apps=connected_apps,
+                include_app_guidance=True
             )
-            enhanced_instructions += autonomy_instructions
 
-            if "GOOGLEDRIVE" in agent_model.app_connections and "GMAIL" in agent_model.app_connections:
-                enhanced_instructions += "\n\nIMPORTANT: When asked to send files from Google Drive via Gmail:\n"
-                enhanced_instructions += "1. First use GOOGLEDRIVE_FIND_FILE or GOOGLEDRIVE_GET_FILE_BY_ID to locate the file\n"
-                enhanced_instructions += "2. Use GOOGLEDRIVE_DOWNLOAD_FILE to get the file content\n"
-                enhanced_instructions += "3. Then use GMAIL_SEND_EMAIL_WITH_ATTACHMENT to send the email with the file attached\n"
-                enhanced_instructions += "Always perform these steps in sequence and confirm each step's success."
+            # Build final instructions: base prompt + injected context
+            enhanced_instructions = agent_model.prompt + "\n" + injected_context
+
+            # === DYNAMIC MODEL SELECTION ===
+            # Select appropriate model based on task complexity
+            model_strategy = get_model_selection_strategy()
+            selected_model = model_strategy.select_model(
+                user_prompt=message,
+                connected_apps=connected_apps,
+                chat_history=chat_history
+            )
 
             # === FILE ATTACHMENTS HANDLING ===
             # If files are attached, append their paths to the message for Composio to access
@@ -291,7 +274,7 @@ class AgentService:
                 name=agent_model.name,
                 instructions=enhanced_instructions,
                 tools=tools,
-                model="gpt-4o-mini"
+                model=selected_model  # Use dynamically selected model
             )
 
             runner = Runner()
@@ -1421,8 +1404,17 @@ class AgentService:
                 if not all(isinstance(tool, str) for tool in selected_tools):
                     raise ValueError("AI response was not a list of strings.")
 
-                print(f"Successfully selected {len(selected_tools)} tools.")
-                return selected_tools
+                print(f"Successfully selected {len(selected_tools)} tools by AI.")
+
+                # === APPLY TOOL DEPENDENCY ENGINE ===
+                # Automatically add required dependency tools
+                dependency_engine = get_tool_dependency_engine()
+                enhanced_tools = dependency_engine.enforce_dependencies(
+                    selected_tools=selected_tools,
+                    connected_apps=app_names
+                )
+
+                return enhanced_tools
 
             except Exception as e:
                 print(f"Error parsing AI tool selection response: {e}. Returning empty list.")
