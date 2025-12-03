@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 
 from ..agents.models import Agent, ChatMessage
@@ -203,6 +204,7 @@ def get_messaging_channels(request, agent_id):
         )
 
 
+@csrf_exempt  # Telegram webhook can't provide CSRF token
 @api_view(['POST'])
 @permission_classes([AllowAny])  # Telegram webhook doesn't use auth
 def telegram_webhook(request, agent_id):
