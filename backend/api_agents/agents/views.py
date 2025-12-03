@@ -957,6 +957,23 @@ class AgentViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @extend_schema(
+        tags=['messaging'],
+        operation_id='agents_messaging_channels',
+        summary='Get messaging channels for agent',
+        responses=MessagingChannelSerializer(many=True),
+        description='Get all connected messaging channels (Telegram, WhatsApp) for an agent'
+    )
+    @action(detail=True, methods=['get'], url_path='messaging/channels')
+    def messaging_channels(self, request, pk=None):
+        """Get all messaging channels for an agent"""
+        agent = self.get_object()
+        channels = MessagingChannel.objects.filter(agent=agent)
+        return Response(
+            MessagingChannelSerializer(channels, many=True).data,
+            status=status.HTTP_200_OK
+        )
+
+    @extend_schema(
         tags=['agents'],
         operation_id='agents_chat_create',
         summary='Chat with agent',
