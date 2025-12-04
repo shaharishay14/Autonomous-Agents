@@ -1240,21 +1240,48 @@ RESPONSE FORMAT:
             print(f"     Tools: {tool_slugs}")
 
             try:
-                # Create task-specific message
+                # Create task-specific message with explicit single execution
                 if fetched_data:
-                    task_message = (
-                        f"Task: {action_name} - {message}\n\n"
-                        f"Use the AAPL stock analysis data from the conversation above."
-                    )
+                    if action_name == 'send_email':
+                        task_message = (
+                            f"Send ONE email with the AAPL stock analysis to the specified address.\n"
+                            f"Use the stock data from the conversation above.\n"
+                            f"Execute the GMAIL_SEND_EMAIL tool exactly once and stop."
+                        )
+                    elif action_name == 'create_document' or action_name == 'save_drive':
+                        task_message = (
+                            f"Create ONE Google Docs document with the AAPL stock analysis.\n"
+                            f"Use the stock data from the conversation above.\n"
+                            f"Execute the GOOGLEDOCS_CREATE_DOCUMENT tool exactly once and stop."
+                        )
+                    else:
+                        task_message = (
+                            f"Task: {action_name} - {message}\n\n"
+                            f"Use the data from the conversation above.\n"
+                            f"Execute the required tool exactly once and stop."
+                        )
                 else:
-                    task_message = f"Task: {action_name} - {message}"
+                    task_message = f"Task: {action_name} - {message}\nExecute exactly once and stop."
 
                 # Execute this specific task with its tools
                 # Skip intent validation since we already detected the platform in task parsing
+                # CRITICAL: Limit to specific tools to prevent agent from using wrong tools
+                if action_name == 'send_email':
+                    # For email, use ONLY the send email tool (not attachment version unless files)
+                    limited_tools = ['GMAIL_SEND_EMAIL']
+                elif action_name == 'create_document' or action_name == 'save_drive':
+                    # For Google Docs, use only the create document tool
+                    limited_tools = ['GOOGLEDOCS_CREATE_DOCUMENT']
+                else:
+                    # Use the originally detected tools
+                    limited_tools = tool_slugs[:1]  # Limit to first tool to prevent confusion
+
+                print(f"     Using limited tools: {limited_tools}")
+
                 task_response = await self._chat_with_composio(
                     agent_model,
                     task_message,
-                    tool_slugs,
+                    limited_tools,  # Use limited tools instead of all tools
                     enriched_history,
                     callback,
                     file_attachments=None,
