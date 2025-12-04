@@ -1063,9 +1063,11 @@ RESPONSE FORMAT:
                 "role": "user",
                 "content": message
             })
+            # Clean markdown from agent tools response before adding to history
+            cleaned_response = self._clean_markdown_formatting(agent_tools_response)
             enriched_history.append({
                 "role": "assistant",
-                "content": agent_tools_response
+                "content": cleaned_response
             })
 
             # Execute with Composio tools (with enriched context)
@@ -1223,9 +1225,12 @@ RESPONSE FORMAT:
                 "role": "user",
                 "content": message
             })
+            # Clean markdown from fetched data before adding to history
+            # This ensures emails and documents don't contain markdown formatting
+            cleaned_data = self._clean_markdown_formatting(fetched_data)
             enriched_history.append({
                 "role": "assistant",
-                "content": fetched_data
+                "content": cleaned_data
             })
 
         # Execute each task sequentially
