@@ -2067,13 +2067,16 @@ CRITICAL INSTRUCTION FOR TASK EXECUTION:
             "    correct tool slugs from the 'Available Tools' list.\n"
 
             "4.  **FILE ATTACHMENT RULE (CRITICAL):**\n"
+            "    - IMPORTANT: Text content (stock analysis, weather, summaries) is NOT an attachment!\n"
+            "      * For text-only emails: Use GMAIL_SEND_EMAIL (text goes in email body)\n"
+            "      * Only use attachment tools when FILES_ATTACHED: true\n"
             "    - If files are attached to the current message (indicated by 'FILES_ATTACHED: true'),\n"
             "      you MUST select attachment-specific tools:\n"
             "      * For Gmail: Use GMAIL_SEND_EMAIL_WITH_ATTACHMENT (NOT GMAIL_SEND_EMAIL)\n"
             "      * For Twitter: Use TWITTER_UPLOAD_MEDIA if uploading media\n"
             "      * For other platforms: Use the appropriate upload/attachment tool\n"
-            "    - If the 'Conversation History' contains 'Attached files:' and the user mentions\n"
-            "      posting, uploading, or using those files, also include the relevant tool.\n"
+            "    - Stock analysis, calculations, reports = TEXT CONTENT = use GMAIL_SEND_EMAIL\n"
+            "    - Actual files (PDFs, images, documents) = use GMAIL_SEND_EMAIL_WITH_ATTACHMENT\n"
 
             "5.  **REAL-TIME DATA RULE (CRITICAL):**\n"
             "    - If the user requests analysis, summary, or information about:\n"
