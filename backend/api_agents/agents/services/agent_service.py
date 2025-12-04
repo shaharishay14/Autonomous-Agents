@@ -832,9 +832,39 @@ List the exact steps you will take:
         print(f"🔀 Mixed tools routing: Composio={has_composio_tools}, Agent={has_agent_tools}")
 
         if has_composio_tools and has_agent_tools:
-            # Both available - prefer Composio for connected apps
-            print("  → Using Composio tools (connected apps take precedence)")
-            return await self._chat_with_composio(agent_model, message, composio_tool_slugs, chat_history, callback)
+            # Both available - smart routing based on message content
+            # Check if message requires agent tools (stock/weather/calc/etc)
+            message_lower = message.lower()
+
+            # Stock/financial queries should use yahoo_finance agent tool
+            stock_keywords = ['stock', 'ticker', 'market', 'share price', 'aapl', 'tsla', 'financial']
+            needs_yahoo_finance = (
+                any(keyword in message_lower for keyword in stock_keywords) and
+                'yahoo_finance' in agent_model.agent_tools
+            )
+
+            # Weather queries should use weather agent tool
+            weather_keywords = ['weather', 'temperature', 'forecast', 'climate']
+            needs_weather = (
+                any(keyword in message_lower for keyword in weather_keywords) and
+                'weather' in agent_model.agent_tools
+            )
+
+            # Calculator queries should use calculator agent tool
+            calc_keywords = ['calculate', 'compute', 'math', 'equation', 'formula']
+            needs_calculator = (
+                any(keyword in message_lower for keyword in calc_keywords) and
+                'calculator' in agent_model.agent_tools
+            )
+
+            # If message needs specialized agent tools, use agent tools
+            if needs_yahoo_finance or needs_weather or needs_calculator:
+                print(f"  → Using agent tools (specialized tools needed: yahoo_finance={needs_yahoo_finance}, weather={needs_weather}, calc={needs_calculator})")
+                return await self._chat_with_agent_tools(agent_model, message, chat_history, callback)
+            else:
+                # Default: prefer Composio for connected apps
+                print("  → Using Composio tools (connected apps take precedence)")
+                return await self._chat_with_composio(agent_model, message, composio_tool_slugs, chat_history, callback)
         elif has_composio_tools:
             # Only Composio
             print("  → Using Composio tools only")
