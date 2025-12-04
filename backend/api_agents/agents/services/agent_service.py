@@ -1132,11 +1132,18 @@ List the exact steps you will take:
             print(f"     Tools: {tool_slugs}")
 
             try:
-                # Create task-specific message
+                # Create task-specific message with explicit single-execution instruction
                 if fetched_data:
-                    task_message = f"Using the data provided above, complete this task: {message}"
+                    task_message = (
+                        f"IMPORTANT: Execute this task EXACTLY ONCE. Do not retry or repeat.\n\n"
+                        f"Task: {message}\n\n"
+                        f"Use the data provided in the conversation history above."
+                    )
                 else:
-                    task_message = message
+                    task_message = (
+                        f"IMPORTANT: Execute this task EXACTLY ONCE. Do not retry or repeat.\n\n"
+                        f"Task: {message}"
+                    )
 
                 # Execute this specific task with its tools
                 task_response = await self._chat_with_composio(
@@ -1162,11 +1169,9 @@ List the exact steps you will take:
                 print(f"  ❌ {action_name} failed: {error_msg}")
 
         # Combine results
-        if fetched_data:
-            # Include the fetched data in the response
-            final_response = f"{fetched_data}\n\n" + "\n".join(task_results)
-        else:
-            final_response = "\n".join(task_results)
+        # For multi-task execution, only return task completion status
+        # The user will receive the data via email/drive/etc, not in chat
+        final_response = "\n".join(task_results)
 
         return final_response
 
