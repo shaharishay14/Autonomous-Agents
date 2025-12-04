@@ -279,6 +279,7 @@ class AgentService:
 
             # Skip Intent Resolution and Validation for task queue execution
             # (we already know the platform and action from task parsing)
+            intent_resolution = None  # Initialize to None for skip cases
             if not skip_intent_validation:
                 # Resolve intent for vague language
                 intent_engine = get_intent_engine()
@@ -683,22 +684,22 @@ RESPONSE FORMAT (EXTREMELY IMPORTANT):
             # Add special instructions for data-fetch-only mode
             if is_data_fetch_only:
                 enhanced_prompt += "\n\n" + """
-CRITICAL: DATA FETCH ONLY MODE
-================================
-You are in a special data-fetching phase for a multi-task operation.
+CRITICAL: DATA FETCH MODE FOR MULTI-TASK OPERATION
+====================================================
+You are in a data-fetching phase for a multi-task operation.
+The user has requested multiple actions that will be performed sequentially.
 
 IMPORTANT INSTRUCTIONS:
-1. Fetch the requested data using your tools (stock data, weather, etc.)
-2. DO NOT output the full analysis or data to the user
+1. FETCH AND RETURN the complete requested data/analysis using your tools
+2. Provide the FULL analysis/data that will be used in subsequent tasks
 3. DO NOT say "I will now send email" or "I will create a document"
-4. Your response should be brief and factual
-5. The data you fetch will be used automatically in the next phase
+4. DO NOT perform any actions (sending, posting, creating files)
+5. Your response should contain the complete data/analysis
 
 RESPONSE FORMAT:
-- Simply state what data was fetched
-- Example: "Fetched current AAPL stock data and analysis"
-- Maximum 30 words
-- Do not include the actual data values in your response
+- Return the complete analysis/data requested
+- The data will be used automatically for email/document tasks
+- Focus only on data fetching, not on actions
 """
 
             # === ADD FILE CONTEXT TO MESSAGE ===
@@ -1011,12 +1012,12 @@ RESPONSE FORMAT:
         # Step 2: Execute with agent tools to get data
         print("  Step 2: Fetching data with agent tools...")
 
-        # Modify message to make it clear we only want data fetching
+        # Modify message to make it clear we want complete data fetching
         data_fetch_message = (
             f"{message}\n\n"
-            "IMPORTANT: Only fetch and return the requested data/analysis. "
-            "Do NOT send emails, create documents, or perform any actions yet. "
-            "Just fetch and return the data that will be used in subsequent tasks."
+            "IMPORTANT: Fetch and return the COMPLETE requested data/analysis. "
+            "Provide the full analysis that will be needed for the email and document. "
+            "Do NOT send emails or create documents yet - just fetch and return all the data."
         )
 
         # For multi-task execution, suppress callback during data fetch
