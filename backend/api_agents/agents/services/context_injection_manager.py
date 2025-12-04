@@ -3,10 +3,16 @@ Context Injection Manager
 -------------------------
 Orchestrates the injection of all contextual information into agent prompts.
 Combines system context (date, user) with app-specific guidance and agent tools guidance.
+
+ENHANCED with:
+- Conversation memory (recent topics, platforms, files, actions)
+- Intent resolution patterns (vague language mapping)
+- Data resolution rules (real-time data, date calculation, stock market calendar)
 """
 
 import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from collections import Counter
 from .app_context_library import get_contexts_for_connected_apps
 from .agent_tools_context_library import get_contexts_for_agent_tools
 
@@ -27,6 +33,8 @@ class ContextInjectionManager:
         agent_model,
         connected_apps: List[str] = None,
         agent_tools: List[str] = None,
+        chat_history: List[Dict[str, str]] = None,
+        user_message: str = None,
         include_app_guidance: bool = True,
         include_agent_tools_guidance: bool = True,
         **kwargs
@@ -39,6 +47,8 @@ class ContextInjectionManager:
             agent_model: Agent model instance
             connected_apps: List of connected app names (e.g., ["GMAIL", "SLACK"])
             agent_tools: List of agent tool names (e.g., ["weather", "calculator", "yahoo_finance"])
+            chat_history: Recent conversation messages
+            user_message: Current user message
             include_app_guidance: Whether to include Composio app-specific guidance
             include_agent_tools_guidance: Whether to include agent tools guidance
             **kwargs: Additional parameters
@@ -53,24 +63,42 @@ class ContextInjectionManager:
         if system_context:
             context_parts.append(system_context)
 
-        # 2. Operational Rules (Tool Usage, Autonomy)
+        # 2. Conversation Memory Context (NEW - recent topics, platforms, files, actions)
+        if chat_history or user_message:
+            conversation_memory = self._build_conversation_memory_context(
+                chat_history or [], user_message
+            )
+            if conversation_memory:
+                context_parts.append(conversation_memory)
+
+        # 3. Intent Resolution Patterns (NEW - vague language mapping)
+        intent_patterns = self._build_intent_resolution_patterns()
+        if intent_patterns:
+            context_parts.append(intent_patterns)
+
+        # 4. Data Resolution Rules (NEW - real-time data, dates, stock market)
+        data_rules = self._build_data_resolution_rules(agent_tools or [])
+        if data_rules:
+            context_parts.append(data_rules)
+
+        # 5. Operational Rules (Tool Usage, Autonomy)
         operational_rules = self._build_operational_rules()
         if operational_rules:
             context_parts.append(operational_rules)
 
-        # 3. App-Specific Guidance (Composio connected apps)
+        # 6. App-Specific Guidance (Composio connected apps)
         if include_app_guidance and connected_apps:
             app_context = get_contexts_for_connected_apps(connected_apps)
             if app_context:
                 context_parts.append(app_context)
 
-        # 4. Agent Tools Guidance (weather, calculator, yahoo_finance, etc.)
+        # 7. Agent Tools Guidance (weather, calculator, yahoo_finance, etc.)
         if include_agent_tools_guidance and agent_tools:
             agent_tools_context = get_contexts_for_agent_tools(agent_tools)
             if agent_tools_context:
                 context_parts.append(agent_tools_context)
 
-        # 5. Additional Custom Context
+        # 8. Additional Custom Context
         custom_context = kwargs.get('custom_context')
         if custom_context:
             context_parts.append(custom_context)
@@ -183,6 +211,294 @@ class ContextInjectionManager:
 
 {'='*80}
 """
+
+    def _build_conversation_memory_context(
+        self, chat_history: List[Dict[str, str]], current_message: Optional[str]
+    ) -> str:
+        """
+        Build conversation memory context from recent chat history.
+        Extracts recent topics, platforms mentioned, files discussed, and actions taken.
+        """
+        if not chat_history and not current_message:
+            return ""
+
+        # Extract information
+        recent_topics = self._extract_recent_topics(chat_history, current_message or "")
+        recent_platforms = self._extract_recent_platforms(chat_history, current_message or "")
+        recent_files = self._extract_recent_files(chat_history)
+        recent_actions = self._extract_recent_actions(chat_history)
+        last_assistant_action = self._extract_last_assistant_action(chat_history)
+
+        # Build context string
+        memory_parts = []
+
+        if recent_topics:
+            topics_str = ", ".join(recent_topics[:5])
+            memory_parts.append(f"• Recent Topics: {topics_str}")
+
+        if recent_platforms:
+            platforms_str = ", ".join([f"{p[0]} ({p[1]}x)" for p in recent_platforms[:3]])
+            memory_parts.append(f"• Platforms Used: {platforms_str}")
+
+        if recent_files:
+            files_str = ", ".join(recent_files[:3])
+            if len(recent_files) > 3:
+                files_str += f" (+ {len(recent_files) - 3} more)"
+            memory_parts.append(f"• Recent Files: {files_str}")
+
+        if recent_actions:
+            actions_str = ", ".join(recent_actions[:3])
+            memory_parts.append(f"• Recent Actions: {actions_str}")
+
+        if last_assistant_action:
+            memory_parts.append(f"• Last Action: {last_assistant_action}")
+
+        if not memory_parts:
+            return ""
+
+        return f"""
+💭 CONVERSATION MEMORY
+{'='*80}
+{chr(10).join(memory_parts)}
+
+⚠️  USE THIS CONTEXT: When user says "this", "it", "that", or mentions a platform without full context,
+   refer to the above memory to understand what they're referencing.
+
+{'='*80}
+"""
+
+    def _build_intent_resolution_patterns(self) -> str:
+        """
+        Build intent resolution patterns for vague language mapping.
+        Helps agent understand slang and ambiguous references.
+        """
+        return """
+🧠 INTENT RESOLUTION PATTERNS
+{'='*80}
+
+**VAGUE LANGUAGE MAPPING**
+
+When user says vague verbs, map them to concrete actions:
+
+• "launch" / "drop" / "blast" / "fire" / "release"
+  → Interpret as: POST (to social media) or SEND (to messaging/email)
+  → Check conversation memory and connected apps to determine platform
+  → If unclear, prioritize most recently used platform
+
+• "share" / "push" / "throw" / "toss"
+  → Interpret as: POST or SEND or UPLOAD (depending on context)
+  → Look for platform hints in conversation
+  → If no platform mentioned: infer from connected apps and recent actions
+
+• "this" / "it" / "that" / "the file" / "the doc"
+  → Refer to: Most recent file attachment OR content just generated OR topic being discussed
+  → Check conversation memory for recent files
+  → If assistant just generated substantial content (>200 chars), "this" refers to that content
+
+• "yesterday" / "last week" / "previous" / "earlier"
+  → MUST calculate exact date based on current system date
+  → For stock/market queries: Adjust to last business day if falls on weekend
+  → Never guess or use outdated training data
+
+**AUTONOMOUS DECISION PROTOCOL**
+
+1. **Analyze Context**: Use conversation memory + connected apps + recent actions
+2. **Make Decision**: Choose most likely interpretation based on evidence
+3. **Execute Immediately**: Don't ask for clarification unless TRULY ambiguous (e.g., "send to" with no recipient)
+4. **Confirm After**: Brief confirmation of what action was taken
+
+**EXAMPLES**
+
+User: "launch this to twitter"
+→ Action: POST | Platform: TWITTER | Content: Most recent file or generated content | Confidence: HIGH ✅
+
+User: "share about Amazon stock yesterday's analysis"
+→ Action: POST or SEND | Platform: Infer from connected apps | Content: Must SEARCH for Amazon stock data for calculated 'yesterday' date first | Confidence: MEDIUM ⚠️
+
+User: "drop the report"
+→ Action: POST or SEND | Platform: Check recent platforms | Content: File named 'report' or recent file | Confidence: MEDIUM ⚠️
+
+{'='*80}
+"""
+
+    def _build_data_resolution_rules(self, agent_tools: List[str]) -> str:
+        """
+        Build data resolution rules for real-time data and date calculations.
+        Ensures agent uses search tools instead of hallucinating.
+        """
+        # Check which tools are available
+        has_yahoo_finance = "yahoo_finance" in agent_tools
+        has_web_search = "web_search" in agent_tools
+        has_weather = "weather" in agent_tools
+
+        search_tool_guidance = ""
+        if has_yahoo_finance:
+            search_tool_guidance += "\n  • Yahoo Finance tool is AVAILABLE → Use for stock/market data"
+        if has_web_search:
+            search_tool_guidance += "\n  • Web Search tool is AVAILABLE → Use for general current information"
+        if has_weather:
+            search_tool_guidance += "\n  • Weather tool is AVAILABLE → Use for weather queries"
+
+        if not search_tool_guidance:
+            search_tool_guidance = "\n  • ⚠️  NO SEARCH TOOLS AVAILABLE → Inform user you cannot fetch real-time data"
+
+        return f"""
+🔍 DATA RESOLUTION RULES
+{{'='*80}}
+
+**REAL-TIME DATA REQUIREMENTS**
+
+⚠️  CRITICAL: If user asks for "current", "today", "latest", "now" data, you MUST use search tools.
+❌ NEVER use your training data (knowledge cutoff: January 2025) for current events/prices/data.
+
+**AUTO-SEARCH TRIGGERS:**
+
+• **Stock/Market Data**: "current price", "stock analysis", "ticker", "market"
+  → MUST search for current data using available tools
+  → Calculate date for "yesterday's close" using system date
+  → Adjust to last business day if weekend (Saturday → Friday, Sunday → Friday)
+
+• **News/Events**: "latest news", "today's headlines", "current events"
+  → MUST use web search for up-to-date information
+
+• **Weather**: "today's weather", "forecast", "temperature"
+  → Use weather tool if available, otherwise web search
+
+• **General "Current" Queries**: Any query with "current", "today", "now", "latest"
+  → Default to web search for accurate information
+
+**AVAILABLE TOOLS:**{search_tool_guidance}
+
+**DATE CALCULATION PROTOCOL:**
+
+1. **Extract Date Reference**: "yesterday", "last week", "previous day", "ago"
+2. **Calculate Exact Date**: Use current system date (provided above) to compute target date
+3. **Business Day Adjustment** (for stocks/markets):
+   • If target date is Saturday (weekday=5): Use Friday (date - 1 day)
+   • If target date is Sunday (weekday=6): Use Friday (date - 2 days)
+4. **Use Calculated Date**: Pass exact date to search tools
+5. **Never Guess**: If you can't calculate the date, ask the user for clarification
+
+**EXAMPLES**
+
+User: "What's Amazon stock price today?"
+→ ACTION: Use Yahoo Finance or Web Search to get CURRENT Amazon (AMZN) stock price
+→ DO NOT use training data from 2024 or earlier
+
+User: "Share about Amazon stock yesterday's analysis"
+→ STEP 1: Calculate yesterday's date (system date - 1 day, adjust if weekend)
+→ STEP 2: Search for Amazon stock data for that specific date
+→ STEP 3: Generate analysis from search results
+→ STEP 4: Post/Send to identified platform
+
+User: "What was the weather like last Tuesday?"
+→ ACTION: Calculate date for last Tuesday, then use weather tool or web search
+→ DO NOT hallucinate weather data
+
+{{'='*80}}
+"""
+
+    # Helper methods for conversation memory extraction
+
+    def _extract_recent_topics(self, chat_history: List[Dict], current_message: str) -> List[str]:
+        """Extract key topics from conversation"""
+        topic_keywords = [
+            "stock", "weather", "email", "calendar", "meeting", "post", "tweet",
+            "twitter", "analysis", "report", "summary", "file", "document",
+            "upload", "download", "schedule", "send", "share"
+        ]
+
+        topics = []
+        all_text = current_message.lower()
+
+        # Add from history
+        for msg in chat_history[-5:]:  # Last 5 messages
+            all_text += " " + msg.get('content', '').lower()
+
+        # Extract topics
+        for keyword in topic_keywords:
+            if keyword in all_text and keyword not in topics:
+                topics.append(keyword)
+
+        return topics[:5]
+
+    def _extract_recent_platforms(self, chat_history: List[Dict], current_message: str) -> List[tuple]:
+        """Extract platforms mentioned and their frequency"""
+        platform_keywords = {
+            "twitter": "TWITTER",
+            "tweet": "TWITTER",
+            "gmail": "GMAIL",
+            "email": "GMAIL",
+            "slack": "SLACK",
+            "calendar": "GOOGLECALENDAR",
+            "drive": "GOOGLEDRIVE",
+        }
+
+        platform_counts = Counter()
+        all_text = current_message.lower()
+
+        for msg in chat_history[-5:]:
+            all_text += " " + msg.get('content', '').lower()
+
+        for keyword, platform in platform_keywords.items():
+            if keyword in all_text:
+                # Count occurrences
+                platform_counts[platform] += all_text.count(keyword)
+
+        # Return as (platform, count) tuples
+        return platform_counts.most_common(3)
+
+    def _extract_recent_files(self, chat_history: List[Dict]) -> List[str]:
+        """Extract file names mentioned in conversation"""
+        files = []
+        file_extensions = ['.pdf', '.docx', '.xlsx', '.pptx', '.txt', '.csv', '.jpg', '.png']
+
+        for msg in chat_history[-5:]:
+            content = msg.get('content', '')
+            # Look for file names (basic pattern matching)
+            for ext in file_extensions:
+                if ext in content.lower():
+                    # Extract filename (simple approach)
+                    words = content.split()
+                    for word in words:
+                        if ext in word.lower() and word not in files:
+                            files.append(word.strip('.,!?"'))
+
+        return files[:3]
+
+    def _extract_recent_actions(self, chat_history: List[Dict]) -> List[str]:
+        """Extract actions taken in conversation"""
+        action_keywords = ["sent", "posted", "created", "scheduled", "uploaded", "downloaded", "shared"]
+        actions = []
+
+        for msg in chat_history[-3:]:  # Last 3 messages
+            if msg.get('role') == 'assistant':
+                content = msg.get('content', '').lower()
+                for keyword in action_keywords:
+                    if keyword in content:
+                        # Try to extract action phrase
+                        if keyword + " to" in content:
+                            actions.append(keyword + " to [platform]")
+                        elif keyword + " email" in content:
+                            actions.append(keyword + " email")
+                        elif keyword:
+                            actions.append(keyword)
+                        break  # One action per message
+
+        return list(set(actions))[:3]
+
+    def _extract_last_assistant_action(self, chat_history: List[Dict]) -> Optional[str]:
+        """Extract the last action the assistant took"""
+        for msg in reversed(chat_history[-5:]):
+            if msg.get('role') == 'assistant':
+                content = msg.get('content', '')
+                # Look for action indicators
+                action_verbs = ["sent", "posted", "created", "scheduled", "uploaded", "shared"]
+                for verb in action_verbs:
+                    if verb in content.lower():
+                        # Extract a brief summary (first 80 chars)
+                        return content[:80] + ("..." if len(content) > 80 else "")
+        return None
 
 
 # Global instance for easy access

@@ -21,6 +21,9 @@ from .agent_tools_service import AgentToolsService
 from .context_injection_manager import get_context_manager
 from .tool_dependency_engine import get_tool_dependency_engine
 from .model_selection_strategy import get_model_selection_strategy
+from .intent_resolution_engine import get_intent_engine
+from .pre_execution_validator import get_validator
+from .execution_logger import get_execution_logger
 
 
 # Fun, user-friendly status messages (no "Composio" mentioned)
@@ -231,6 +234,13 @@ class AgentService:
         """
         Runs the full agent execution with a specific set of tools and chat history.
 
+        ENHANCED with:
+        - Intent resolution for vague language
+        - Pre-execution validation
+        - Execution logging for debugging
+        - Chain of Thought orchestration
+        - Post-execution verification
+
         Args:
             agent_model: Agent model instance
             message: User message
@@ -239,12 +249,82 @@ class AgentService:
             callback: Optional async callback function for streaming updates
             file_attachments: List of file attachment dictionaries with file paths
         """
+        import time
+        start_time = time.time()
+
         try:
+            # ============================================================
+            # PHASE 1: INITIALIZATION & EXECUTION LOGGING
+            # ============================================================
+
+            # Start execution logging
+            execution_logger = get_execution_logger()
+            connected_apps = agent_model.app_connections if hasattr(agent_model, 'app_connections') else []
+            agent_tools_list = agent_model.agent_tools if hasattr(agent_model, 'agent_tools') else []
+
+            execution_logger.start_execution(
+                agent_id=str(agent_model.id),
+                user_id=str(self.user.id),
+                user_message=message,
+                connected_apps=connected_apps,
+                available_files=file_attachments or [],
+                agent_tools=agent_tools_list,
+                chat_history=chat_history or []
+            )
+
+            # ============================================================
+            # PHASE 2: INTENT RESOLUTION
+            # ============================================================
+
+            # Resolve intent for vague language
+            intent_engine = get_intent_engine()
+            intent_resolution = intent_engine.resolve_intent(
+                user_message=message,
+                chat_history=chat_history,
+                connected_apps=connected_apps,
+                available_files=file_attachments,
+                agent_tools=agent_tools_list
+            )
+
+            execution_logger.log_intent_resolution(intent_resolution)
+            print(f"🧠 Intent Resolution: {intent_resolution.reasoning} (Confidence: {intent_resolution.confidence}%)")
+
+            # ============================================================
+            # PHASE 3: PRE-EXECUTION VALIDATION
+            # ============================================================
+
+            # Validate requirements before execution
+            validator = get_validator()
+            validation_result = validator.validate(
+                intent=intent_resolution,
+                available_files=file_attachments or [],
+                connected_apps=connected_apps,
+                agent_tools=agent_tools_list,
+                chat_history=chat_history or [],
+                user_message=message
+            )
+
+            execution_logger.log_validation(validation_result)
+            print(f"✅ Validation: {validation_result.validation_summary}")
+
+            # If validation failed with blocking issues, inform user
+            if not validation_result.passed:
+                error_message = f"❌ Cannot execute: {validation_result.blocking_issues[0]}"
+                execution_logger.log_execution_error(error_message)
+                if callback:
+                    await callback('error', {'error': error_message})
+                return error_message
+
+            # ============================================================
+            # PHASE 4: TOOL LOADING
+            # ============================================================
+
             if callback:
                 await callback('status', {
                     'status': 'tool_calling',
                     'message': random.choice(TOOL_LOADING_MESSAGES)
                 })
+
             tools = await sync_to_async(self.composio_client.tools.get)(
                 user_id=self._get_entity_id(),
                 tools=specific_tools_slugs
@@ -254,24 +334,88 @@ class AgentService:
 
             if not tools:
                 print("DEBUG: Composio.tools.get returned no tools. Falling back.")
+                execution_logger.log_execution_error("No tools available")
                 return await self._chat_without_tools(agent_model, message, chat_history, callback)
 
-            # === USE CONTEXT INJECTION MANAGER ===
-            # This replaces all hardcoded context with dynamic, app-specific context
+            # Log tool selection
+            tool_reasoning = f"Selected {len(specific_tools_slugs)} tools based on user prompt and intent resolution"
+            execution_logger.log_tool_selection(specific_tools_slugs, tool_reasoning)
+
+            # ============================================================
+            # PHASE 5: CONTEXT INJECTION (ENHANCED)
+            # ============================================================
+
+            # Use enhanced context manager with conversation memory, intent patterns, data rules
             context_manager = get_context_manager()
-            connected_apps = agent_model.app_connections if hasattr(agent_model, 'app_connections') else []
 
             injected_context = context_manager.build_complete_context(
                 user=self.user,
                 agent_model=agent_model,
                 connected_apps=connected_apps,
-                include_app_guidance=True
+                agent_tools=agent_tools_list,
+                chat_history=chat_history,  # NEW: Pass chat history for conversation memory
+                user_message=message,  # NEW: Pass current message for intent analysis
+                include_app_guidance=True,
+                include_agent_tools_guidance=True
             )
 
-            # Build final instructions: base prompt + injected context
-            enhanced_instructions = agent_model.prompt + "\n" + injected_context
+            # ============================================================
+            # PHASE 6: CHAIN OF THOUGHT ORCHESTRATION
+            # ============================================================
 
-            # === DYNAMIC MODEL SELECTION ===
+            # Add Chain of Thought enforcement to system prompt
+            chain_of_thought_protocol = """
+
+🧠 CHAIN OF THOUGHT EXECUTION PROTOCOL (MANDATORY)
+{'='*80}
+
+Before executing ANY tools, you MUST follow this structured thinking process:
+
+**STEP 1: ANALYZE THE REQUEST**
+- What exactly is the user asking?
+- What action needs to be performed? (post, send, search, create, etc.)
+- What platform/destination? (Twitter, Gmail, Calendar, etc.)
+- What content/file? (Is it attached? Generated? Needs to be fetched?)
+- What date/time? (If "yesterday" or "today", calculate the exact date)
+
+**STEP 2: VALIDATE REQUIREMENTS**
+- ✅ Do I have all required information?
+- ✅ Do I have access to necessary files?
+- ✅ Do I have the right tools for this task?
+- ✅ If real-time data needed (stocks, weather, news), do I have search tools?
+
+**STEP 3: PLAN EXECUTION**
+List the exact steps you will take:
+1. [First action with specific tool]
+2. [Second action if needed]
+3. [Final confirmation]
+
+**STEP 4: EXECUTE (NO SIMULATION)**
+- Actually call the tools
+- Do NOT say "I will..." or "I would..."
+- Execute and confirm what was done
+
+**CRITICAL RULES:**
+- If user says "this" or "it", refer to CONVERSATION MEMORY to understand what they mean
+- If user says "yesterday", calculate the exact date using SYSTEM CONTEXT (current date provided above)
+- If asking for "current stock price" or "latest news", you MUST use search tools - never guess
+- If sharing/sending a file, ensure you have downloaded it first (use DOWNLOAD tool)
+- After execution, provide brief confirmation of what was accomplished
+
+{'='*80}
+"""
+
+            # Build final instructions: base prompt + chain of thought + injected context
+            enhanced_instructions = (
+                agent_model.prompt + "\n" +
+                chain_of_thought_protocol + "\n" +
+                injected_context
+            )
+
+            # ============================================================
+            # PHASE 7: DYNAMIC MODEL SELECTION
+            # ============================================================
+
             # Select appropriate model based on task complexity
             model_strategy = get_model_selection_strategy()
             selected_model = model_strategy.select_model(
@@ -279,6 +423,15 @@ class AgentService:
                 connected_apps=connected_apps,
                 chat_history=chat_history
             )
+
+            # Log model selection with reasoning
+            model_reasoning = model_strategy.get_selection_reasoning(
+                user_prompt=message,
+                selected_model=selected_model,
+                complexity_score=model_strategy._calculate_complexity_score(message, connected_apps, chat_history),
+                connected_apps=connected_apps
+            )
+            execution_logger.log_model_selection(selected_model, model_reasoning)
 
             # === FILE ATTACHMENTS HANDLING ===
             # If files are attached, append their paths to the message for Composio to access
@@ -301,6 +454,10 @@ class AgentService:
                 enhanced_message += file_context
                 print(f"📎 Added context for {len(file_attachments)} file(s) to Composio prompt")
 
+            # ============================================================
+            # PHASE 8: AGENT CREATION & EXECUTION
+            # ============================================================
+
             composio_agent = ComposioAgent(
                 name=agent_model.name,
                 instructions=enhanced_instructions,
@@ -313,6 +470,9 @@ class AgentService:
             # Add the current user message (with file paths if any) to chat history
             full_chat_history = (chat_history or []) + [{"role": "user", "content": enhanced_message}]
 
+            # Mark execution as started
+            execution_logger.log_execution_start()
+
             # Send heartbeats during Composio runner execution (opaque operation)
             # Since we can't see inside the runner, emit periodic status updates
             if callback:
@@ -322,7 +482,6 @@ class AgentService:
                 })
 
                 # Run the runner with periodic heartbeats
-                import time
                 last_heartbeat = time.time()
 
                 async def run_with_heartbeats():
@@ -349,24 +508,28 @@ class AgentService:
                 # runner.run() is async, so we await it directly
                 result = await runner.run(composio_agent, full_chat_history)
 
+            # ============================================================
+            # PHASE 9: EXTRACT RESULT & POST-EXECUTION VERIFICATION
+            # ============================================================
+
+            # Extract output from result
+            output = None
             if hasattr(result, 'final_output'):
-                # Task 6: Detect simulated actions and log warnings
                 output = result.final_output
-                self._detect_simulated_actions(output, tools)
-                return output
             elif hasattr(result, 'output'):
-                return result.output
+                output = result.output
             elif hasattr(result, 'content'):
-                return result.content
+                output = result.content
             elif hasattr(result, 'text'):
-                return result.text
+                output = result.text
             elif hasattr(result, 'messages') and len(result.messages) > 0:
                 last_message = result.messages[-1]
                 if hasattr(last_message, 'content'):
-                    return last_message.content
-                return str(last_message)
+                    output = last_message.content
+                else:
+                    output = str(last_message)
             elif isinstance(result, str):
-                return result
+                output = result
             else:
                 print(f"🔍 RunResult type: {type(result)}")
                 print(f"🔍 RunResult attributes: {dir(result)}")
@@ -375,13 +538,52 @@ class AgentService:
                     lines = result_str.split('\n')
                     for i, line in enumerate(lines):
                         if "Final output (str):" in line and i + 2 < len(lines):
-                            return lines[i + 2].strip()
-                return result_str
+                            output = lines[i + 2].strip()
+                            break
+                if not output:
+                    output = result_str
+
+            # Post-Execution Verification
+            # 1. Detect simulated actions (agent saying "I will" instead of doing)
+            self._detect_simulated_actions(output, tools)
+
+            # 2. Verify execution success (basic heuristics)
+            execution_success = self._verify_execution_success(output, intent_resolution)
+            if not execution_success:
+                print(f"⚠️  Execution may not have completed successfully")
+
+            # ============================================================
+            # PHASE 10: COMPLETION LOGGING
+            # ============================================================
+
+            # Calculate execution duration
+            end_time = time.time()
+            duration_ms = int((end_time - start_time) * 1000)
+
+            # Log completion
+            execution_logger.log_execution_complete(output, duration_ms)
+            print(f"✅ Execution completed in {duration_ms}ms")
+
+            # Print execution summary for debugging
+            if execution_logger.current_log:
+                print("\n" + "="*80)
+                print("📊 EXECUTION SUMMARY")
+                print("="*80)
+                print(execution_logger.get_execution_summary(execution_logger.current_log))
+                print("="*80 + "\n")
+
+            return output
 
         except Exception as e:
             print(f"Error in Composio chat: {e}")
             import traceback
             traceback.print_exc()
+
+            # Log error
+            execution_logger = get_execution_logger()
+            if execution_logger.current_log:
+                execution_logger.log_execution_error(str(e))
+
             if callback:
                 await callback('error', {'error': str(e)})
             return await self._chat_without_tools(agent_model, message, chat_history, callback)
@@ -1597,6 +1799,46 @@ class AgentService:
             print(f"   Available tools: {[t.split('_')[0] for t in available_tools[:3]]}")
             print(f"   Response preview: {output[:200]}...")
             print(f"   💡 TIP: Agent should USE tools, not describe them!")
+
+    def _verify_execution_success(self, output: str, intent_resolution) -> bool:
+        """
+        Post-execution verification - Check if agent successfully completed the task.
+
+        Returns:
+            True if execution appears successful, False otherwise
+        """
+        if not output:
+            return False
+
+        output_lower = output.lower()
+
+        # Success indicators
+        success_keywords = [
+            "successfully", "completed", "done", "sent", "posted", "created",
+            "scheduled", "uploaded", "downloaded", "shared", "email sent",
+            "tweet posted", "event created", "file uploaded"
+        ]
+
+        # Failure indicators
+        failure_keywords = [
+            "error", "failed", "couldn't", "cannot", "unable to",
+            "not found", "invalid", "problem", "issue"
+        ]
+
+        has_success = any(keyword in output_lower for keyword in success_keywords)
+        has_failure = any(keyword in output_lower for keyword in failure_keywords)
+
+        if has_failure:
+            print(f"⚠️  Execution may have failed - failure keywords detected")
+            return False
+
+        if has_success:
+            print(f"✅ Execution appears successful - success keywords detected")
+            return True
+
+        # If no clear indicators, assume success (benefit of doubt)
+        print(f"ℹ️  Execution status unclear - no definitive success/failure indicators")
+        return True
 
     async def generate_greeting_message(self, agent_model) -> str:
         """
