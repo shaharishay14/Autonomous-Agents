@@ -1114,6 +1114,19 @@ CRITICAL INSTRUCTION FOR TASK EXECUTION:
                     if any(slug.startswith(prefix) for prefix in pattern['tool_prefixes'])
                 ]
 
+                # Special handling for email: prefer non-attachment version for text content
+                if pattern['action'] == 'send_email' and matching_tools:
+                    # Check if message indicates actual file attachments
+                    has_file_keywords = any(word in message_lower for word in
+                                          ['attach', 'attachment', 'file', 'document', 'pdf', 'csv', 'xlsx'])
+
+                    # If no file keywords and both email tools present, use non-attachment version
+                    if not has_file_keywords:
+                        # Filter out attachment version if regular version exists
+                        if 'GMAIL_SEND_EMAIL' in matching_tools and 'GMAIL_SEND_EMAIL_WITH_ATTACHMENT' in matching_tools:
+                            matching_tools = ['GMAIL_SEND_EMAIL']
+                            print(f"  📧 No attachments detected - using GMAIL_SEND_EMAIL (text only)")
+
                 if matching_tools:
                     tasks.append({
                         'action': pattern['action'],
