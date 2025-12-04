@@ -13,6 +13,7 @@ from drf_spectacular.types import OpenApiTypes
 from ..workflows.models import Trigger, TriggerExecution, Workflow, WorkflowExecution
 from ..agents.models import Agent, ChatMessage
 from ..agents.services.agent_service import AgentService
+from ..serializers import UnifiedAgentCreateSerializer, AgentSerializer
 from . import serializers
 from .serializers import (
     TriggerSerializer, TriggerExecutionSerializer,
@@ -517,3 +518,225 @@ class WorkflowViewSet(viewsets.ModelViewSet):
                 {'error': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @extend_schema(
+        tags=['workflows'],
+        operation_id='workflows_create_agent',
+        summary='Create agent from workflow (YOLO mode)',
+        description='Creates a new agent in YOLO mode (prompt only) and automatically adds it to the workflow. The agent name will be auto-generated from the prompt.',
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'prompt': {
+                        'type': 'string',
+                        'description': 'System prompt for the agent (required)'
+                    }
+                },
+                'required': ['prompt']
+            }
+        },
+        responses={
+            201: OpenApiResponse(
+                response=AgentSerializer,
+                description='Agent created and added to workflow successfully'
+            ),
+            400: OpenApiResponse(description='Validation error - prompt is required'),
+            401: OpenApiResponse(description='Authentication required'),
+            404: OpenApiResponse(description='Workflow not found')
+        }
+    )
+    @action(detail=True, methods=['post'], url_path='create-agent')
+    def create_agent(self, request, pk=None):
+        """
+        Creates a new agent in YOLO mode (prompt only) and automatically adds it to the workflow.
+        Based on the agent creation logic from AgentViewSet._create_manual_or_yolo.
+        """
+        workflow = self.get_object()
+        
+        # Validate request data
+        prompt = request.data.get('prompt', '').strip()
+        if not prompt:
+            return Response(
+                {'error': 'prompt is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Generate agent name (YOLO mode - auto-generate from prompt)
+            name = self._generate_agent_name(prompt, [], [])
+            
+            # Get random default avatar
+            avatar_data, avatar_filename, avatar_mime = self._get_random_default_avatar()
+            
+            # Create the agent (YOLO mode - no tools by default)
+            agent = Agent.objects.create(
+                user=request.user,
+                name=name,
+                prompt=prompt,
+                avatar_image=avatar_data,
+                avatar_filename=avatar_filename,
+                avatar_mime_type=avatar_mime,
+                app_connections=[],  # No Composio apps by default
+                agent_tools=[],  # No agent tools by default
+                tools=[]
+            )
+            
+            # Add agent to workflow (preserving order via through model)
+            workflow.agents.add(agent)
+            
+            # Update nodes count
+            workflow.update_nodes_count()
+            
+            print(f"✅ Created agent '{agent.name}' (ID: {agent.id}) and added to workflow '{workflow.name}' (ID: {workflow.id})")
+            
+            # Serialize and return the agent
+            agent_serializer = AgentSerializer(agent, context={'request': request})
+            return Response(agent_serializer.data, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            traceback.print_exc()
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _generate_agent_name(self, prompt: str, app_connections: list = None, agent_tools: list = None) -> str:
+        """
+        Generates an agent name from the prompt and tools using OpenAI.
+        Returns a short, descriptive name (2-3 words max).
+        Based on AgentViewSet._generate_agent_name.
+        """
+        import asyncio
+        from asgiref.sync import async_to_sync
+
+        try:
+            agent_service = AgentService(self.request.user)
+            if not agent_service.openai_client:
+                # Fallback if OpenAI is not configured
+                print("OpenAI client not configured, using default name")
+                return "My Agent"
+
+            # Build context about tools
+            tools_context = ""
+            if app_connections or agent_tools:
+                all_tools = []
+                if app_connections:
+                    all_tools.extend(app_connections)
+                if agent_tools:
+                    all_tools.extend(agent_tools)
+                tools_context = f"\nConnected Tools: {', '.join(all_tools)}"
+
+            system_prompt = (
+                "You are a naming assistant. Generate a SHORT, catchy name for an AI agent "
+                "based on its purpose and connected tools. The name should be:\n"
+                "1. EXACTLY 2-3 words (this is critical!)\n"
+                "2. Descriptive of the agent's main function or connected tools\n"
+                "3. Professional and memorable\n"
+                "4. No quotes or special characters\n"
+                "5. Capitalize each word (Title Case)\n\n"
+                "Examples: 'Email Assistant', 'Research Helper', 'Gmail Manager'\n\n"
+                "Return ONLY the name, nothing else."
+            )
+
+            user_content = f"Generate a name for an agent with this prompt:\n\n{prompt}{tools_context}"
+
+            # Call async OpenAI client synchronously using asyncio.run
+            async def call_openai():
+                return await agent_service.openai_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_content}
+                    ],
+                    temperature=0.7,
+                    max_completion_tokens=30
+                )
+
+            # Use asyncio.run to properly execute the async function
+            try:
+                response = asyncio.run(call_openai())
+            except RuntimeError:
+                # If already in an event loop, use async_to_sync
+                response = async_to_sync(call_openai)()
+
+            generated_name = response.choices[0].message.content.strip()
+
+            # Clean up the name (remove quotes, extra whitespace)
+            generated_name = generated_name.strip('"\'')
+            generated_name = ' '.join(generated_name.split())  # Normalize whitespace
+
+            # Ensure it's 2-3 words - if longer, truncate to first 3 words
+            words = generated_name.split()
+            if len(words) > 3:
+                generated_name = ' '.join(words[:3])
+
+            # Fallback if empty
+            if not generated_name or len(generated_name.strip()) == 0:
+                print("Generated name is empty, using default name")
+                return "My Agent"
+
+            print(f"✅ Generated agent name: {generated_name}")
+            return generated_name
+
+        except Exception as e:
+            print(f"❌ Error generating agent name: {e}")
+            import traceback
+            traceback.print_exc()
+            # Always fallback to "My Agent" on error
+            return "My Agent"
+
+    def _get_random_default_avatar(self):
+        """
+        Randomly selects a default avatar image from static/default_avatars_clouds/ folder.
+        Returns tuple: (binary_data, filename, mime_type) or (None, None, None) if no images found.
+        Based on AgentViewSet._get_random_default_avatar.
+        """
+        import os
+        import random
+        import mimetypes
+        from django.conf import settings
+
+        # Path to default avatars folder
+        default_avatars_path = os.path.join(settings.BASE_DIR, 'static', 'default_avatars_clouds')
+
+        try:
+            # Check if directory exists
+            if not os.path.exists(default_avatars_path):
+                print(f"⚠️  Default avatars directory not found: {default_avatars_path}")
+                return None, None, None
+
+            # List all image files in the directory (exclude Mac metadata files starting with ._)
+            image_extensions = ['.jpg', '.jpeg', '.png']
+            available_images = [
+                f for f in os.listdir(default_avatars_path)
+                if os.path.isfile(os.path.join(default_avatars_path, f))
+                and os.path.splitext(f.lower())[1] in image_extensions
+                and not f.startswith('._')  # Exclude Mac metadata files
+            ]
+
+            if not available_images:
+                print(f"⚠️  No default avatar images found in {default_avatars_path}")
+                return None, None, None
+
+            # Randomly select an image
+            selected_image = random.choice(available_images)
+            image_path = os.path.join(default_avatars_path, selected_image)
+
+            # Read the image file
+            with open(image_path, 'rb') as f:
+                image_data = f.read()
+
+            # Detect MIME type
+            mime_type, _ = mimetypes.guess_type(image_path)
+            if not mime_type:
+                mime_type = 'image/jpeg'  # Default fallback
+
+            print(f"✅ Selected default avatar: {selected_image} ({mime_type})")
+            return image_data, selected_image, mime_type
+
+        except Exception as e:
+            print(f"❌ Error loading default avatar: {e}")
+            import traceback
+            traceback.print_exc()
+            return None, None, None
