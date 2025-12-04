@@ -492,14 +492,17 @@ class WorkflowViewSet(viewsets.ModelViewSet):
             # Create a copy
             workflow = Workflow.objects.create(
                 user=request.user,
-                agent=original.agent,
                 name=f"{original.name} (Copy)",
                 description=original.description,
-                status='draft',
-                nodes=original.nodes,
-                edges=original.edges,
-                viewport=original.viewport
+                status='draft'
             )
+            # Copy agents from original workflow, preserving order
+            # Get agents in order from through model
+            original_agents = original.workflowagent_set.select_related('agent').order_by('created_at')
+            for workflow_agent in original_agents:
+                workflow.agents.add(workflow_agent.agent)
+            # Update nodes count
+            workflow.update_nodes_count()
 
             return Response(WorkflowSerializer(workflow).data, status=status.HTTP_201_CREATED)
 
