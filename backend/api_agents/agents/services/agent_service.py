@@ -1372,8 +1372,8 @@ RESPONSE FORMAT:
         # Remove inline code (`code` -> code)
         text = re.sub(r'`([^`]+)`', r'\1', text)
 
-        # Remove headers (### Header -> Header)
-        text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+        # Remove headers (### Header -> Header) - handle optional leading whitespace
+        text = re.sub(r'^\s*#{1,6}\s+', '', text, flags=re.MULTILINE)
 
         # Remove bold with nested content (**text:** -> text:)
         text = re.sub(r'\*\*([^*]+):\*\*', r'\1:', text)
