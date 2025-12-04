@@ -10,7 +10,9 @@ import datetime
 import random
 import re
 import logging
-from typing import List, Dict, Any, Optional
+import time
+from functools import wraps
+from typing import List, Dict, Any, Optional, Callable, TypeVar
 from pathlib import Path
 from composio import Composio
 from composio_openai_agents import OpenAIAgentsProvider
@@ -48,6 +50,85 @@ PROCESSING_MESSAGES = [
     "Crunching the data... 🧮",
     "Making magic happen... ✨",
 ]
+
+
+# ============================================================
+# RETRY LOGIC WITH EXPONENTIAL BACKOFF
+# ============================================================
+
+T = TypeVar('T')
+
+def with_retry(
+    max_retries: int = 3,
+    backoff_factor: float = 2.0,
+    initial_delay: float = 1.0,
+    max_delay: float = 60.0,
+    retry_on: tuple = (Exception,),
+    dont_retry_on: tuple = (asyncio.TimeoutError, KeyboardInterrupt)
+):
+    """
+    Decorator to add retry logic with exponential backoff to async functions.
+
+    Args:
+        max_retries: Maximum number of retry attempts (default: 3)
+        backoff_factor: Multiplier for delay between retries (default: 2.0)
+        initial_delay: Initial delay in seconds (default: 1.0)
+        max_delay: Maximum delay between retries in seconds (default: 60.0)
+        retry_on: Tuple of exceptions to retry on (default: all exceptions)
+        dont_retry_on: Tuple of exceptions to never retry (default: TimeoutError, KeyboardInterrupt)
+
+    Example:
+        @with_retry(max_retries=3, backoff_factor=2)
+        async def fetch_data():
+            # Will retry up to 3 times with delays: 1s, 2s, 4s
+            pass
+    """
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @wraps(func)
+        async def wrapper(*args, **kwargs) -> T:
+            last_exception = None
+
+            for attempt in range(max_retries + 1):  # +1 because first attempt is not a retry
+                try:
+                    return await func(*args, **kwargs)
+
+                except dont_retry_on as e:
+                    # Don't retry these exceptions
+                    logger.warning(f"Non-retryable exception in {func.__name__}: {type(e).__name__}")
+                    raise
+
+                except retry_on as e:
+                    last_exception = e
+
+                    # If this was the last attempt, raise the exception
+                    if attempt >= max_retries:
+                        logger.error(f"Max retries ({max_retries}) exceeded for {func.__name__}: {e}")
+                        raise
+
+                    # Calculate delay with exponential backoff
+                    delay = min(initial_delay * (backoff_factor ** attempt), max_delay)
+
+                    # Add jitter to prevent thundering herd
+                    jittered_delay = delay * (0.5 + random.random())
+
+                    logger.warning(
+                        f"Attempt {attempt + 1}/{max_retries + 1} failed for {func.__name__}: {type(e).__name__}: {str(e)[:100]}. "
+                        f"Retrying in {jittered_delay:.2f}s..."
+                    )
+
+                    await asyncio.sleep(jittered_delay)
+
+                except Exception as e:
+                    # Unexpected exception type
+                    logger.error(f"Unexpected exception in {func.__name__}: {type(e).__name__}: {e}")
+                    raise
+
+            # Should never reach here, but just in case
+            if last_exception:
+                raise last_exception
+
+        return wrapper
+    return decorator
 
 
 # ============================================================
@@ -671,6 +752,101 @@ class AgentService:
             }
             return []
 
+    def _invalidate_tools_cache(self, app_name: str = None):
+        """
+        Invalidate tools cache when connections change.
+        Call this after connecting/disconnecting apps to ensure fresh tool availability.
+
+        Args:
+            app_name: Specific app to invalidate, or None to clear all
+        """
+        if app_name:
+            app_key = app_name.upper()
+            if app_key in self._tools_cache:
+                logger.info(f"♻️ Invalidated tools cache for {app_key}")
+                del self._tools_cache[app_key]
+        else:
+            cache_size = len(self._tools_cache)
+            self._tools_cache.clear()
+            logger.info(f"♻️ Cleared entire tools cache ({cache_size} entries)")
+
+    def _invalidate_connection_cache(self, entity_id: str = None, tool_name: str = None):
+        """
+        Invalidate connection cache when connection status changes.
+        Call this after users connect/disconnect integrations.
+
+        Args:
+            entity_id: Specific user to invalidate, or None for all users
+            tool_name: Specific tool to invalidate, or None for all tools
+        """
+        if entity_id and tool_name:
+            cache_key = f"{entity_id}:{tool_name}"
+            if cache_key in self._connection_cache:
+                logger.info(f"♻️ Invalidated connection cache for {cache_key}")
+                del self._connection_cache[cache_key]
+        elif entity_id:
+            # Invalidate all connections for this user
+            keys_to_delete = [key for key in self._connection_cache.keys() if key.startswith(f"{entity_id}:")]
+            for key in keys_to_delete:
+                del self._connection_cache[key]
+            logger.info(f"♻️ Invalidated {len(keys_to_delete)} connection cache entries for {entity_id}")
+        else:
+            # Clear entire cache
+            cache_size = len(self._connection_cache)
+            self._connection_cache.clear()
+            logger.info(f"♻️ Cleared entire connection cache ({cache_size} entries)")
+
+    def _cleanup_expired_cache_entries(self):
+        """
+        Remove expired entries from both caches to prevent unbounded memory growth.
+        Should be called periodically (e.g., every hour or before major operations).
+        """
+        import time
+        current_time = time.time()
+
+        # Cleanup tools cache
+        expired_tool_keys = [
+            key for key, data in self._tools_cache.items()
+            if current_time - data['timestamp'] > data['ttl']
+        ]
+        for key in expired_tool_keys:
+            del self._tools_cache[key]
+
+        # Cleanup connection cache
+        expired_conn_keys = [
+            key for key, data in self._connection_cache.items()
+            if current_time - data['timestamp'] > data['ttl']
+        ]
+        for key in expired_conn_keys:
+            del self._connection_cache[key]
+
+        if expired_tool_keys or expired_conn_keys:
+            logger.info(f"🧹 Cleaned up {len(expired_tool_keys)} expired tool cache entries and {len(expired_conn_keys)} expired connection cache entries")
+
+    @with_retry(max_retries=2, backoff_factor=2, initial_delay=1.0)
+    async def _execute_agent_with_retry(self, runner: Runner, agent: ComposioAgent, chat_history: List[Dict], timeout: float = 180.0):
+        """
+        Execute Composio agent with automatic retry on transient failures.
+        Uses exponential backoff: 1s, 2s delays between retries.
+
+        Args:
+            runner: Composio Runner instance
+            agent: ComposioAgent instance to execute
+            chat_history: Chat history to pass to agent
+            timeout: Maximum execution time in seconds (default: 180s)
+
+        Returns:
+            Agent execution result
+
+        Raises:
+            asyncio.TimeoutError: If execution exceeds timeout (not retried)
+            Exception: On final retry failure
+        """
+        return await asyncio.wait_for(
+            runner.run(agent, chat_history),
+            timeout=timeout
+        )
+
     async def _chat_without_tools(self, agent_model, message: str, chat_history: List[Dict[str, str]] = None, callback=None) -> str:
         """
         Runs a basic OpenAI chat (no tools) when tool selection fails or is empty.
@@ -1092,12 +1268,9 @@ RESPONSE FORMAT:
                 last_heartbeat = time.time()
 
                 async def run_with_heartbeats():
-                    # Create a task for the runner with timeout
+                    # Create a task for the runner with timeout and automatic retry
                     runner_task = asyncio.create_task(
-                        asyncio.wait_for(
-                            runner.run(composio_agent, full_chat_history),
-                            timeout=180.0  # Increased from 60 to 180 seconds
-                        )
+                        self._execute_agent_with_retry(runner, composio_agent, full_chat_history, timeout=180.0)
                     )
 
                     # Periodically send heartbeats while runner is working
@@ -1115,13 +1288,9 @@ RESPONSE FORMAT:
                 result = await run_with_heartbeats()
             else:
                 # Pass the *entire chat history* (including current message with files) to the runner.
-                # runner.run() is async, so we await it directly
-                # Add timeout to prevent hanging (60 seconds max per task)
+                # Uses automatic retry with exponential backoff for transient failures
                 try:
-                    result = await asyncio.wait_for(
-                        runner.run(composio_agent, full_chat_history),
-                        timeout=180.0  # Increased from 60 to 180 seconds
-                    )
+                    result = await self._execute_agent_with_retry(runner, composio_agent, full_chat_history, timeout=180.0)
                 except asyncio.TimeoutError:
                     print("⚠️ Composio execution timed out after 180 seconds")
                     return "Task execution timed out. The operation may still be in progress."
