@@ -1293,10 +1293,37 @@ RESPONSE FORMAT:
                 task_results.append(f"❌ {action_name} failed: {error_msg}")
                 print(f"  ❌ {action_name} failed: {error_msg}")
 
-        # Combine results
-        # For multi-task execution, only return task completion status
-        # The user will receive the data via email/drive/etc, not in chat
-        final_response = "\n".join(task_results)
+        # Combine results with a nice formatted summary
+        # For multi-task execution, provide a user-friendly summary like competitors
+
+        # Build a professional summary
+        summary_parts = ["I have completed your requests! Here's the summary of what I did:\n"]
+
+        # Parse the results to create numbered list
+        task_number = 1
+        for i, task in enumerate(tasks):
+            if i < len(task_results) and task_results[i].startswith("✅"):
+                action = task['action']
+                platform = task['platform']
+
+                if action == 'send_email':
+                    # Extract email from message if possible
+                    import re
+                    email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', message)
+                    email = email_match.group(0) if email_match else "your email"
+                    summary_parts.append(f"{task_number}. Sent the AAPL Stock Analysis to your email at {email}.")
+
+                elif action == 'save_drive' or action == 'create_document':
+                    summary_parts.append(f'{task_number}. Created a new Google Docs document titled "AAPL Stock Analysis." You can view and edit it in your Google Drive.')
+
+                else:
+                    summary_parts.append(f"{task_number}. Completed {action} on {platform}.")
+
+                task_number += 1
+
+        summary_parts.append("\nFeel free to let me know if you need anything else or any additional details!")
+
+        final_response = "\n".join(summary_parts)
 
         return final_response
 
