@@ -814,6 +814,7 @@ List the exact steps you will take:
         1. If Composio tools are selected, use Composio (handles connected apps)
         2. If no Composio tools selected BUT agent tools are available, use agent tools
         3. If neither, fallback to basic chat
+        4. Clean markdown formatting from all responses
 
         This prioritization ensures agent tools (like yahoo_finance, weather, calculator)
         are used when Composio doesn't have relevant tools.
@@ -830,6 +831,9 @@ List the exact steps you will take:
         has_agent_tools = agent_model.agent_tools and len(agent_model.agent_tools) > 0
 
         print(f"🔀 Mixed tools routing: Composio={has_composio_tools}, Agent={has_agent_tools}")
+
+        response = None
+        used_hybrid_mode = False  # Track if we used hybrid mode (which already cleans markdown)
 
         if has_composio_tools and has_agent_tools:
             # Both available - smart routing based on message content
@@ -870,29 +874,37 @@ List the exact steps you will take:
                     print(f"     - Composio actions: {composio_tool_slugs}")
 
                     # Execute agent tools first to get data, then pass to Composio with enriched context
-                    return await self._chat_with_hybrid_tools(
+                    # Note: _chat_with_hybrid_tools already includes markdown cleanup
+                    response = await self._chat_with_hybrid_tools(
                         agent_model, message, composio_tool_slugs, chat_history, callback
                     )
+                    used_hybrid_mode = True
                 else:
                     # Only need agent tools (data query without action)
                     print(f"  → Using agent tools only (specialized tools needed: yahoo_finance={needs_yahoo_finance}, weather={needs_weather}, calc={needs_calculator})")
-                    return await self._chat_with_agent_tools(agent_model, message, chat_history, callback)
+                    response = await self._chat_with_agent_tools(agent_model, message, chat_history, callback)
             else:
                 # Default: prefer Composio for connected apps
                 print("  → Using Composio tools (connected apps take precedence)")
-                return await self._chat_with_composio(agent_model, message, composio_tool_slugs, chat_history, callback)
+                response = await self._chat_with_composio(agent_model, message, composio_tool_slugs, chat_history, callback)
         elif has_composio_tools:
             # Only Composio
             print("  → Using Composio tools only")
-            return await self._chat_with_composio(agent_model, message, composio_tool_slugs, chat_history, callback)
+            response = await self._chat_with_composio(agent_model, message, composio_tool_slugs, chat_history, callback)
         elif has_agent_tools:
             # Only agent tools (THIS FIXES THE STOCK PRICE ISSUE)
             print("  → Using agent tools only (no relevant Composio tools)")
-            return await self._chat_with_agent_tools(agent_model, message, chat_history, callback)
+            response = await self._chat_with_agent_tools(agent_model, message, chat_history, callback)
         else:
             # No tools at all
             print("  → No tools available, using basic chat")
-            return await self._chat_without_tools(agent_model, message, chat_history, callback)
+            response = await self._chat_without_tools(agent_model, message, chat_history, callback)
+
+        # Clean markdown formatting from response (unless hybrid mode already did it)
+        if response and not used_hybrid_mode:
+            response = self._clean_markdown_formatting(response)
+
+        return response
 
     async def _chat_with_hybrid_tools(self, agent_model, message: str, composio_tool_slugs: List[str], chat_history: List[Dict[str, str]] = None, callback=None) -> str:
         """
@@ -901,12 +913,15 @@ List the exact steps you will take:
         Workflow:
         1. Execute with agent tools first to fetch data (yahoo_finance, weather, etc.)
         2. Capture the data from agent tool execution
-        3. Add that data to conversation context
-        4. Execute with Composio tools (email, post, etc.) with enriched context
+        3. Parse message to identify multiple tasks (email, twitter, drive, etc.)
+        4. Execute each task sequentially with the fetched data
+        5. Clean markdown formatting from response
 
-        Example: "send me AAPL stock analysis to email"
+        Example: "send me AAPL stock analysis to email, post on twitter, and save to drive"
         - Step 1: Use yahoo_finance agent tool → get real stock data
-        - Step 2: Use GMAIL_SEND_EMAIL Composio tool → send email with that data
+        - Step 2: Detect 3 tasks: email, twitter, drive
+        - Step 3: Execute each task with the fetched data
+        - Step 4: Clean markdown formatting
 
         Args:
             agent_model: Agent model instance
@@ -928,39 +943,264 @@ List the exact steps you will take:
 
         print(f"  ✅ Agent tools response ({len(agent_tools_response)} chars)")
 
-        # Step 2: Inject agent tools response into context for Composio execution
-        # Create enriched message that includes the data fetched by agent tools
-        enriched_message = (
-            f"{message}\n\n"
-            f"[Context: The following data was fetched by specialized tools]\n"
-            f"{agent_tools_response}"
-        )
+        # Step 2: Parse message to identify multiple tasks
+        tasks = self._parse_multi_task_request(message, composio_tool_slugs)
 
-        # Add agent response to chat history for Composio execution
+        # Step 3: Execute tasks
+        if len(tasks) > 1:
+            # Multiple tasks detected - use task queue execution
+            print(f"  Step 2: Multi-task mode - {len(tasks)} tasks detected")
+            final_response = await self._execute_task_queue(
+                agent_model,
+                message,
+                tasks,
+                agent_tools_response,
+                chat_history,
+                callback
+            )
+        else:
+            # Single task - use standard hybrid execution
+            print("  Step 2: Single task mode")
+
+            # Inject agent tools response into context for Composio execution
+            enriched_history = chat_history.copy() if chat_history else []
+            enriched_history.append({
+                "role": "user",
+                "content": message
+            })
+            enriched_history.append({
+                "role": "assistant",
+                "content": agent_tools_response
+            })
+
+            # Execute with Composio tools (with enriched context)
+            print("  Step 3: Executing action with Composio tools (with fetched data)...")
+            composio_response = await self._chat_with_composio(
+                agent_model,
+                f"Based on the data above, {message}",
+                composio_tool_slugs,
+                enriched_history,
+                callback
+            )
+
+            print(f"  ✅ Composio action completed")
+            final_response = f"{agent_tools_response}\n\n{composio_response}"
+
+        # Step 4: Clean markdown formatting from response
+        final_response = self._clean_markdown_formatting(final_response)
+
+        return final_response
+
+    def _parse_multi_task_request(self, message: str, composio_tool_slugs: List[str]) -> List[Dict[str, Any]]:
+        """
+        Parse a message to identify multiple tasks/actions.
+
+        Returns a list of tasks, each with:
+        - action: The action type (send_email, post_twitter, save_drive, etc.)
+        - platform: The target platform
+        - tool_slugs: The specific Composio tool slugs for this task
+
+        Example: "send stock analysis to email, post on twitter, and save to google drive"
+        Returns: [
+            {action: 'send_email', platform: 'gmail', tool_slugs: ['GMAIL_SEND_EMAIL']},
+            {action: 'post_twitter', platform: 'twitter', tool_slugs: ['TWITTER_CREATION_OF_A_POST']},
+            {action: 'save_drive', platform: 'googledrive', tool_slugs: ['GOOGLEDOCS_CREATE_DOCUMENT']}
+        ]
+        """
+        message_lower = message.lower()
+        tasks = []
+
+        # Define action patterns with their keywords and corresponding tool slugs
+        action_patterns = [
+            {
+                'action': 'send_email',
+                'platform': 'gmail',
+                'keywords': ['send', 'email', 'mail', 'e-mail'],
+                'tool_prefixes': ['GMAIL_SEND', 'GMAIL_CREATE']
+            },
+            {
+                'action': 'post_twitter',
+                'platform': 'twitter',
+                'keywords': ['post', 'tweet', 'twitter', 'x.com'],
+                'tool_prefixes': ['TWITTER_CREATION', 'TWITTER_POST', 'TWITTER_UPLOAD']
+            },
+            {
+                'action': 'save_drive',
+                'platform': 'googledrive',
+                'keywords': ['save', 'drive', 'google drive', 'docs', 'document', 'gdrive'],
+                'tool_prefixes': ['GOOGLEDOCS_CREATE', 'GOOGLEDRIVE_CREATE', 'GOOGLEDRIVE_UPLOAD']
+            },
+            {
+                'action': 'post_slack',
+                'platform': 'slack',
+                'keywords': ['slack', 'slack message', 'slack channel'],
+                'tool_prefixes': ['SLACK_CHAT_POST', 'SLACK_SEND']
+            },
+            {
+                'action': 'create_calendar_event',
+                'platform': 'googlecalendar',
+                'keywords': ['schedule', 'calendar', 'event', 'meeting'],
+                'tool_prefixes': ['GOOGLECALENDAR_CREATE', 'GOOGLECALENDAR_INSERT']
+            },
+            {
+                'action': 'create_notion',
+                'platform': 'notion',
+                'keywords': ['notion', 'notion page', 'notion database'],
+                'tool_prefixes': ['NOTION_CREATE', 'NOTION_ADD']
+            },
+            {
+                'action': 'send_whatsapp',
+                'platform': 'whatsapp',
+                'keywords': ['whatsapp', 'whats app', 'wa'],
+                'tool_prefixes': ['WHATSAPP_SEND']
+            },
+            {
+                'action': 'send_telegram',
+                'platform': 'telegram',
+                'keywords': ['telegram', 'tg'],
+                'tool_prefixes': ['TELEGRAM_SEND']
+            }
+        ]
+
+        # Check each action pattern
+        for pattern in action_patterns:
+            # Check if any keyword is in the message
+            if any(keyword in message_lower for keyword in pattern['keywords']):
+                # Find matching tool slugs from the available Composio tools
+                matching_tools = [
+                    slug for slug in composio_tool_slugs
+                    if any(slug.startswith(prefix) for prefix in pattern['tool_prefixes'])
+                ]
+
+                if matching_tools:
+                    tasks.append({
+                        'action': pattern['action'],
+                        'platform': pattern['platform'],
+                        'tool_slugs': matching_tools
+                    })
+                    print(f"  📋 Detected task: {pattern['action']} ({pattern['platform']}) - Tools: {matching_tools}")
+
+        return tasks
+
+    async def _execute_task_queue(
+        self,
+        agent_model,
+        message: str,
+        tasks: List[Dict[str, Any]],
+        fetched_data: str = None,
+        chat_history: List[Dict[str, str]] = None,
+        callback=None
+    ) -> str:
+        """
+        Execute a queue of tasks sequentially with shared context.
+
+        Args:
+            agent_model: Agent model instance
+            message: Original user message
+            tasks: List of tasks to execute
+            fetched_data: Data fetched from agent tools (e.g., stock analysis)
+            chat_history: Previous chat messages
+            callback: Optional async callback function
+
+        Returns:
+            Combined response from all task executions
+        """
+        print(f"📋 TASK QUEUE EXECUTION: Processing {len(tasks)} tasks...")
+
+        # Prepare enriched context with fetched data
         enriched_history = chat_history.copy() if chat_history else []
-        enriched_history.append({
-            "role": "user",
-            "content": message
-        })
-        enriched_history.append({
-            "role": "assistant",
-            "content": agent_tools_response
-        })
 
-        # Step 3: Execute with Composio tools (with enriched context)
-        print("  Step 2: Executing action with Composio tools (with fetched data)...")
-        composio_response = await self._chat_with_composio(
-            agent_model,
-            f"Based on the data above, {message}",
-            composio_tool_slugs,
-            enriched_history,
-            callback
-        )
+        if fetched_data:
+            enriched_history.append({
+                "role": "user",
+                "content": message
+            })
+            enriched_history.append({
+                "role": "assistant",
+                "content": fetched_data
+            })
 
-        print(f"  ✅ Composio action completed")
+        # Execute each task sequentially
+        task_results = []
 
-        # Return combined response
-        return f"{agent_tools_response}\n\n{composio_response}"
+        for i, task in enumerate(tasks, 1):
+            action_name = task['action']
+            platform = task['platform']
+            tool_slugs = task['tool_slugs']
+
+            print(f"  Step {i}/{len(tasks)}: Executing {action_name} on {platform}...")
+            print(f"     Tools: {tool_slugs}")
+
+            try:
+                # Create task-specific message
+                if fetched_data:
+                    task_message = f"Using the data provided above, complete this task: {message}"
+                else:
+                    task_message = message
+
+                # Execute this specific task with its tools
+                task_response = await self._chat_with_composio(
+                    agent_model,
+                    task_message,
+                    tool_slugs,
+                    enriched_history,
+                    callback
+                )
+
+                task_results.append(f"✅ {action_name} completed successfully")
+                print(f"  ✅ {action_name} completed")
+
+                # Add this task's result to history for next tasks
+                enriched_history.append({
+                    "role": "assistant",
+                    "content": f"{action_name}: {task_response}"
+                })
+
+            except Exception as e:
+                error_msg = str(e)
+                task_results.append(f"❌ {action_name} failed: {error_msg}")
+                print(f"  ❌ {action_name} failed: {error_msg}")
+
+        # Combine results
+        if fetched_data:
+            # Include the fetched data in the response
+            final_response = f"{fetched_data}\n\n" + "\n".join(task_results)
+        else:
+            final_response = "\n".join(task_results)
+
+        return final_response
+
+    def _clean_markdown_formatting(self, text: str) -> str:
+        """
+        Remove markdown formatting (stars, dashes) from agent responses.
+
+        Removes:
+        - Bold markers (**text**)
+        - Italic markers (*text*)
+        - List bullets (- item)
+        - Headers (## Header)
+
+        Args:
+            text: Text with markdown formatting
+
+        Returns:
+            Clean text without markdown
+        """
+        import re
+
+        # Remove bold (**text** -> text)
+        text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+
+        # Remove italic (*text* -> text)
+        text = re.sub(r'\*([^*]+)\*', r'\1', text)
+
+        # Remove list bullets (- item -> item)
+        text = re.sub(r'^\s*-\s+', '', text, flags=re.MULTILINE)
+
+        # Remove headers (## Header -> Header)
+        text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+
+        return text
 
     def authenticate_tool(self, tool_name: str, additional_fields: Dict[str, Any] = None, redirect_url: str = None) -> Dict[str, Any]:
         """
