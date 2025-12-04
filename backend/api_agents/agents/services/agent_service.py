@@ -230,7 +230,7 @@ class AgentService:
                 await callback('error', {'error': str(e)})
             return f"Error: {str(e)}"
 
-    async def _chat_with_composio(self, agent_model, message: str, specific_tools_slugs: List[str], chat_history: List[Dict[str, str]] = None, callback=None, file_attachments: List[Dict] = None) -> str:
+    async def _chat_with_composio(self, agent_model, message: str, specific_tools_slugs: List[str], chat_history: List[Dict[str, str]] = None, callback=None, file_attachments: List[Dict] = None, skip_intent_validation: bool = False) -> str:
         """
         Runs the full agent execution with a specific set of tools and chat history.
 
@@ -248,6 +248,7 @@ class AgentService:
             chat_history: Previous chat messages
             callback: Optional async callback function for streaming updates
             file_attachments: List of file attachment dictionaries with file paths
+            skip_intent_validation: If True, skips intent resolution and validation (for task queue)
         """
         import time
         start_time = time.time()
@@ -276,41 +277,44 @@ class AgentService:
             # PHASE 2: INTENT RESOLUTION
             # ============================================================
 
-            # Resolve intent for vague language
-            intent_engine = get_intent_engine()
-            intent_resolution = intent_engine.resolve_intent(
-                user_message=message,
-                chat_history=chat_history,
-                connected_apps=connected_apps,
-                available_files=file_attachments,
-                agent_tools=agent_tools_list
-            )
+            # Skip Intent Resolution and Validation for task queue execution
+            # (we already know the platform and action from task parsing)
+            if not skip_intent_validation:
+                # Resolve intent for vague language
+                intent_engine = get_intent_engine()
+                intent_resolution = intent_engine.resolve_intent(
+                    user_message=message,
+                    chat_history=chat_history,
+                    connected_apps=connected_apps,
+                    available_files=file_attachments,
+                    agent_tools=agent_tools_list
+                )
 
-            execution_logger.log_intent_resolution(intent_resolution)
-            print(f"🧠 Intent Resolution: {intent_resolution.reasoning} (Confidence: {intent_resolution.confidence}%)")
+                execution_logger.log_intent_resolution(intent_resolution)
+                print(f"🧠 Intent Resolution: {intent_resolution.reasoning} (Confidence: {intent_resolution.confidence}%)")
 
-            # ============================================================
-            # PHASE 3: PRE-EXECUTION VALIDATION
-            # ============================================================
+                # ============================================================
+                # PHASE 3: PRE-EXECUTION VALIDATION
+                # ============================================================
 
-            # Validate requirements before execution
-            validator = get_validator()
-            validation_result = validator.validate(
-                intent=intent_resolution,
-                available_files=file_attachments or [],
-                connected_apps=connected_apps,
-                agent_tools=agent_tools_list,
-                chat_history=chat_history or [],
-                user_message=message
-            )
+                # Validate requirements before execution
+                validator = get_validator()
+                validation_result = validator.validate(
+                    intent=intent_resolution,
+                    available_files=file_attachments or [],
+                    connected_apps=connected_apps,
+                    agent_tools=agent_tools_list,
+                    chat_history=chat_history or [],
+                    user_message=message
+                )
 
-            execution_logger.log_validation(validation_result)
-            print(f"✅ Validation: {validation_result.validation_summary}")
+                execution_logger.log_validation(validation_result)
+                print(f"✅ Validation: {validation_result.validation_summary}")
 
-            # If validation failed with blocking issues, inform user
-            if not validation_result.passed:
-                error_message = f"❌ Cannot execute: {validation_result.blocking_issues[0]}"
-                execution_logger.log_execution_error(error_message)
+                # If validation failed with blocking issues, inform user
+                if not validation_result.passed:
+                    error_message = f"❌ Cannot execute: {validation_result.blocking_issues[0]}"
+                    execution_logger.log_execution_error(error_message)
                 if callback:
                     await callback('error', {'error': error_message})
                 return error_message
@@ -1146,12 +1150,15 @@ List the exact steps you will take:
                     )
 
                 # Execute this specific task with its tools
+                # Skip intent validation since we already detected the platform in task parsing
                 task_response = await self._chat_with_composio(
                     agent_model,
                     task_message,
                     tool_slugs,
                     enriched_history,
-                    callback
+                    callback,
+                    file_attachments=None,
+                    skip_intent_validation=True  # Skip for task queue - we already know the platform
                 )
 
                 task_results.append(f"✅ {action_name} completed successfully")
