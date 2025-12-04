@@ -151,10 +151,24 @@ class PreExecutionValidator:
         vague_file_refs = ["this", "it", "that", "the file", "the doc"]
         has_vague_ref = any(ref in user_message.lower() for ref in vague_file_refs)
 
+        # Check if vague reference refers to DATA/CONTENT rather than a FILE
+        data_keywords = [
+            "analysis", "report", "summary", "data", "information", "details",
+            "price", "stock", "weather", "forecast", "result", "calculation",
+            "news", "article", "update", "status", "metrics", "stats"
+        ]
+        refers_to_data = any(keyword in user_message.lower() for keyword in data_keywords)
+
         if requires_file and has_vague_ref:
             # User said "share this" or "send the file"
-            if not available_files:
-                # CRITICAL: No file available
+            # BUT: Check if "this"/"it" refers to data/content, not a file
+            if refers_to_data:
+                # "Send this stock analysis" - refers to data, not a file
+                # No blocking needed - the data will be generated/fetched
+                pass
+            elif not available_files:
+                # CRITICAL: No file available AND no data keywords
+                # This is likely a genuine file reference
                 blocking.append("File reference detected ('this'/'it') but no files available")
                 actions.append("SEARCH_FOR_FILE: Check if file needs to be downloaded from Drive/Cloud")
 
