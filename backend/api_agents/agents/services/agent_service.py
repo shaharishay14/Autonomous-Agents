@@ -1350,6 +1350,8 @@ RESPONSE FORMAT:
         - Italic markers (*text*)
         - List bullets (- item)
         - Headers (## Header)
+        - Code blocks (```code```)
+        - Inline code (`code`)
 
         Args:
             text: Text with markdown formatting
@@ -1359,17 +1361,41 @@ RESPONSE FORMAT:
         """
         import re
 
+        # Remove code blocks (```code``` -> code)
+        text = re.sub(r'```[a-zA-Z]*\n?([^`]+)```', r'\1', text)
+
+        # Remove inline code (`code` -> code)
+        text = re.sub(r'`([^`]+)`', r'\1', text)
+
+        # Remove headers (### Header -> Header)
+        text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+
+        # Remove bold with nested content (**text:** -> text:)
+        text = re.sub(r'\*\*([^*]+):\*\*', r'\1:', text)
+
         # Remove bold (**text** -> text)
         text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
 
-        # Remove italic (*text* -> text)
-        text = re.sub(r'\*([^*]+)\*', r'\1', text)
+        # Remove italic (*text* -> text) - be careful not to remove multiplication
+        text = re.sub(r'(?<!\w)\*([^*\n]+)\*(?!\w)', r'\1', text)
 
-        # Remove list bullets (- item -> item)
-        text = re.sub(r'^\s*-\s+', '', text, flags=re.MULTILINE)
+        # Remove list bullets with various markers (-, *, +)
+        text = re.sub(r'^\s*[-*+]\s+', '', text, flags=re.MULTILINE)
 
-        # Remove headers (## Header -> Header)
-        text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+        # Remove numbered lists (1. item -> item)
+        text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)
+
+        # Remove blockquotes (> text -> text)
+        text = re.sub(r'^\s*>\s+', '', text, flags=re.MULTILINE)
+
+        # Remove horizontal rules (---, ***, ___)
+        text = re.sub(r'^[-*_]{3,}$', '', text, flags=re.MULTILINE)
+
+        # Clean up excessive newlines (more than 2 consecutive)
+        text = re.sub(r'\n{3,}', '\n\n', text)
+
+        # Remove leading/trailing whitespace
+        text = text.strip()
 
         return text
 
