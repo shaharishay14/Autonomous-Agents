@@ -638,7 +638,7 @@ RESPONSE FORMAT (EXTREMELY IMPORTANT):
                 await callback('error', {'error': str(e)})
             return await self._chat_without_tools(agent_model, message, chat_history, callback)
 
-    async def _chat_with_agent_tools(self, agent_model, message: str, chat_history: List[Dict[str, str]] = None, callback=None, file_attachments: List[Dict] = None) -> str:
+    async def _chat_with_agent_tools(self, agent_model, message: str, chat_history: List[Dict[str, str]] = None, callback=None, file_attachments: List[Dict] = None, is_data_fetch_only: bool = False) -> str:
         """
         Runs chat with agent-specific tools (weather, calculator, etc.).
         Uses OpenAI function calling to execute tools.
@@ -649,6 +649,7 @@ RESPONSE FORMAT (EXTREMELY IMPORTANT):
             chat_history: Previous chat messages
             callback: Optional async callback function for streaming updates
             file_attachments: Optional list of file attachment dictionaries
+            is_data_fetch_only: If True, agent should only fetch data without outputting it to user
         """
         if not self.openai_client:
             return "OpenAI client not configured"
@@ -678,6 +679,27 @@ RESPONSE FORMAT (EXTREMELY IMPORTANT):
 
             # Build enhanced prompt with context
             enhanced_prompt = agent_model.prompt + "\n" + injected_context
+
+            # Add special instructions for data-fetch-only mode
+            if is_data_fetch_only:
+                enhanced_prompt += "\n\n" + """
+CRITICAL: DATA FETCH ONLY MODE
+================================
+You are in a special data-fetching phase for a multi-task operation.
+
+IMPORTANT INSTRUCTIONS:
+1. Fetch the requested data using your tools (stock data, weather, etc.)
+2. DO NOT output the full analysis or data to the user
+3. DO NOT say "I will now send email" or "I will create a document"
+4. Your response should be brief and factual
+5. The data you fetch will be used automatically in the next phase
+
+RESPONSE FORMAT:
+- Simply state what data was fetched
+- Example: "Fetched current AAPL stock data and analysis"
+- Maximum 30 words
+- Do not include the actual data values in your response
+"""
 
             # === ADD FILE CONTEXT TO MESSAGE ===
             # If files are attached, add file information to the message
@@ -982,24 +1004,40 @@ RESPONSE FORMAT (EXTREMELY IMPORTANT):
         """
         print("🔀 HYBRID EXECUTION: Agent tools → Composio tools")
 
-        # Step 1: Execute with agent tools to get data
-        print("  Step 1: Fetching data with agent tools...")
+        # Step 1: Parse message to identify multiple tasks
+        tasks = self._parse_multi_task_request(message, composio_tool_slugs)
+        is_multi_task = len(tasks) > 1
+
+        # Step 2: Execute with agent tools to get data
+        print("  Step 2: Fetching data with agent tools...")
+
+        # Modify message to make it clear we only want data fetching
+        data_fetch_message = (
+            f"{message}\n\n"
+            "IMPORTANT: Only fetch and return the requested data/analysis. "
+            "Do NOT send emails, create documents, or perform any actions yet. "
+            "Just fetch and return the data that will be used in subsequent tasks."
+        )
+
+        # For multi-task execution, suppress callback during data fetch
+        # to prevent streaming the full analysis to the user
+        data_fetch_callback = None if is_multi_task else callback
+
         agent_tools_response = await self._chat_with_agent_tools(
             agent_model,
-            message,
+            data_fetch_message,
             chat_history,
-            callback
+            data_fetch_callback,  # Suppress for multi-task to avoid showing analysis
+            file_attachments=None,
+            is_data_fetch_only=True  # Tell agent to fetch data without outputting full analysis
         )
 
         print(f"  ✅ Agent tools response ({len(agent_tools_response)} chars)")
 
-        # Step 2: Parse message to identify multiple tasks
-        tasks = self._parse_multi_task_request(message, composio_tool_slugs)
-
         # Step 3: Execute tasks
-        if len(tasks) > 1:
+        if is_multi_task:
             # Multiple tasks detected - use task queue execution
-            print(f"  Step 2: Multi-task mode - {len(tasks)} tasks detected")
+            print(f"  Step 3: Multi-task mode - {len(tasks)} tasks detected")
             final_response = await self._execute_task_queue(
                 agent_model,
                 message,
@@ -1010,7 +1048,7 @@ RESPONSE FORMAT (EXTREMELY IMPORTANT):
             )
         else:
             # Single task - use standard hybrid execution
-            print("  Step 2: Single task mode")
+            print("  Step 3: Single task mode")
 
             # Inject agent tools response into context for Composio execution
             enriched_history = chat_history.copy() if chat_history else []
@@ -1024,7 +1062,7 @@ RESPONSE FORMAT (EXTREMELY IMPORTANT):
             })
 
             # Execute with Composio tools (with enriched context)
-            print("  Step 3: Executing action with Composio tools (with fetched data)...")
+            print("  Step 4: Executing action with Composio tools (with fetched data)...")
             composio_response = await self._chat_with_composio(
                 agent_model,
                 f"Based on the data above, {message}",
