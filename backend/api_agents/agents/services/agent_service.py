@@ -1658,9 +1658,19 @@ List the exact steps you will take:
             "    - If the 'Conversation History' contains 'Attached files:' and the user mentions\n"
             "      posting, uploading, or using those files, also include the relevant tool.\n"
 
-            "5.  Return a JSON object with a single key: 'tools'.\n"
-            "6.  The value of 'tools' must be a JSON list of the required tool slugs (strings).\n"
-            "7.  If no tools are needed, return {\"tools\": []}."
+            "5.  **REAL-TIME DATA RULE (CRITICAL):**\n"
+            "    - If the user requests analysis, summary, or information about:\n"
+            "      * Stock prices/market data (e.g., 'AAPL stock', 'market analysis', 'ticker')\n"
+            "      * Current/today's/latest news, weather, or any real-time information\n"
+            "      * 'Today', 'current', 'now', 'latest' combined with any data query\n"
+            "    - You MUST include data fetching tools (WEB_SEARCH, YAHOO_FINANCE) in the selected tools\n"
+            "    - Example: 'send me AAPL stock analysis' requires selecting BOTH WEB_SEARCH and GMAIL_SEND_EMAIL\n"
+            "    - NEVER select only email/post/share tools without first selecting data fetching tools\n"
+            "    - The user wants REAL data, not outdated information from the model's training\n"
+            "\n"
+            "6.  Return a JSON object with a single key: 'tools'.\n"
+            "7.  The value of 'tools' must be a JSON list of the required tool slugs (strings).\n"
+            "8.  If no tools are needed, return {\"tools\": []}."
         )
         # --- (END OF FIX) ---
 
