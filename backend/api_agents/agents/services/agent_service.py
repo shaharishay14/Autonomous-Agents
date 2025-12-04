@@ -316,9 +316,9 @@ class AgentService:
                 if not validation_result.passed:
                     error_message = f"❌ Cannot execute: {validation_result.blocking_issues[0]}"
                     execution_logger.log_execution_error(error_message)
-                if callback:
-                    await callback('error', {'error': error_message})
-                return error_message
+                    if callback:
+                        await callback('error', {'error': error_message})
+                    return error_message
 
             # ============================================================
             # PHASE 4: TOOL LOADING
