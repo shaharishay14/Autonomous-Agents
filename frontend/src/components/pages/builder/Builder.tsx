@@ -1,4 +1,4 @@
-import HeroSection from './components/HeroSection';
+ import HeroSection from './components/HeroSection';
 import BuilderSection from './components/BuilderSection';
 import CapabilitiesSection from './components/CapabilitiesSection';
 import WhyChooseSection from './components/WhyChooseSection';
