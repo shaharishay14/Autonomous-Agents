@@ -337,8 +337,15 @@ class AgentService:
             print(f"✅ Loaded {len(tools)} specific tools for user {self.user.username}")
 
             if not tools:
-                print("DEBUG: Composio.tools.get returned no tools. Falling back.")
-                execution_logger.log_execution_error("No tools available")
+                error_msg = f"Failed to load Composio tools: {specific_tools_slugs}"
+                print(f"❌ {error_msg}")
+                execution_logger.log_execution_error(error_msg)
+
+                # For task queue execution, raise exception instead of falling back
+                if skip_intent_validation:
+                    raise Exception(f"Tool loading failed: {specific_tools_slugs}")
+
+                # For regular execution, fall back to chat without tools
                 return await self._chat_without_tools(agent_model, message, chat_history, callback)
 
             # Log tool selection
@@ -415,6 +422,17 @@ List the exact steps you will take:
                 chain_of_thought_protocol + "\n" +
                 injected_context
             )
+
+            # For task queue execution, add strict tool-only instruction
+            if skip_intent_validation:
+                enhanced_instructions += "\n\n" + """
+CRITICAL INSTRUCTION FOR TASK EXECUTION:
+- You MUST use the provided tools to complete this task
+- DO NOT provide text explanations or say you cannot do something
+- DO NOT fall back to describing what should be done
+- EXECUTE the tools and report success or failure
+- If tools fail, raise an error - do not continue with text
+"""
 
             # ============================================================
             # PHASE 7: DYNAMIC MODEL SELECTION
