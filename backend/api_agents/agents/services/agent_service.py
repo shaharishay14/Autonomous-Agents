@@ -329,16 +329,36 @@ class AgentService:
                     'message': random.choice(TOOL_LOADING_MESSAGES)
                 })
 
-            tools = await sync_to_async(self.composio_client.tools.get)(
-                user_id=self._get_entity_id(),
-                tools=specific_tools_slugs
-            )
+            # DEBUG: Log tool loading attempt
+            entity_id = self._get_entity_id()
+            print(f"🔍 DEBUG: Attempting to load tools...")
+            print(f"  - Entity ID: {entity_id}")
+            print(f"  - Requested tools: {specific_tools_slugs}")
+            print(f"  - User: {self.user.username}")
 
-            print(f"✅ Loaded {len(tools)} specific tools for user {self.user.username}")
+            try:
+                tools = await sync_to_async(self.composio_client.tools.get)(
+                    user_id=entity_id,
+                    tools=specific_tools_slugs
+                )
+                print(f"✅ Loaded {len(tools)} specific tools for user {self.user.username}")
+
+                if tools:
+                    print(f"  - Tools returned: {[tool.name if hasattr(tool, 'name') else str(tool)[:50] for tool in tools[:5]]}")
+                else:
+                    print(f"  - WARNING: Composio returned empty tools list")
+
+            except Exception as e:
+                print(f"❌ ERROR loading tools: {type(e).__name__}: {str(e)}")
+                tools = []
 
             if not tools:
                 error_msg = f"Failed to load Composio tools: {specific_tools_slugs}"
                 print(f"❌ {error_msg}")
+                print(f"  - This could be due to:")
+                print(f"    1. Connection expired/invalid for user {self.user.username}")
+                print(f"    2. Tools not enabled for this entity")
+                print(f"    3. Invalid tool slugs")
                 execution_logger.log_execution_error(error_msg)
 
                 # For task queue execution, raise exception instead of falling back
