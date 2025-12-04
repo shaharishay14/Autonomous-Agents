@@ -536,9 +536,12 @@ RESPONSE FORMAT (EXTREMELY IMPORTANT):
                 last_heartbeat = time.time()
 
                 async def run_with_heartbeats():
-                    # Create a task for the runner
+                    # Create a task for the runner with timeout
                     runner_task = asyncio.create_task(
-                        runner.run(composio_agent, full_chat_history)
+                        asyncio.wait_for(
+                            runner.run(composio_agent, full_chat_history),
+                            timeout=60.0
+                        )
                     )
 
                     # Periodically send heartbeats while runner is working
@@ -557,7 +560,15 @@ RESPONSE FORMAT (EXTREMELY IMPORTANT):
             else:
                 # Pass the *entire chat history* (including current message with files) to the runner.
                 # runner.run() is async, so we await it directly
-                result = await runner.run(composio_agent, full_chat_history)
+                # Add timeout to prevent hanging (60 seconds max per task)
+                try:
+                    result = await asyncio.wait_for(
+                        runner.run(composio_agent, full_chat_history),
+                        timeout=60.0
+                    )
+                except asyncio.TimeoutError:
+                    print("⚠️ Composio execution timed out after 60 seconds")
+                    return "Task execution timed out. The operation may still be in progress."
 
             # ============================================================
             # PHASE 9: EXTRACT RESULT & POST-EXECUTION VERIFICATION
@@ -1237,14 +1248,18 @@ RESPONSE FORMAT:
                 # Create task-specific message with explicit single-execution instruction
                 if fetched_data:
                     task_message = (
-                        f"IMPORTANT: Execute this task EXACTLY ONCE. Do not retry or repeat.\n\n"
-                        f"Task: {message}\n\n"
-                        f"Use the data provided in the conversation history above."
+                        f"CRITICAL INSTRUCTIONS:\n"
+                        f"1. Execute this SINGLE task EXACTLY ONCE - do NOT retry\n"
+                        f"2. Send the email/create the document ONLY ONCE\n"
+                        f"3. If you encounter any issue, report it and stop\n"
+                        f"4. Do NOT send multiple emails or create multiple documents\n\n"
+                        f"Task: {action_name} - {message}\n\n"
+                        f"Use the AAPL stock analysis data from the conversation above."
                     )
                 else:
                     task_message = (
-                        f"IMPORTANT: Execute this task EXACTLY ONCE. Do not retry or repeat.\n\n"
-                        f"Task: {message}"
+                        f"CRITICAL: Execute EXACTLY ONCE. Do not retry.\n\n"
+                        f"Task: {action_name} - {message}"
                     )
 
                 # Execute this specific task with its tools
