@@ -447,24 +447,15 @@ List the exact steps you will take:
             # For task queue execution, add strict tool-only instruction
             if skip_intent_validation:
                 enhanced_instructions += "\n\n" + """
-CRITICAL INSTRUCTION FOR TASK EXECUTION:
-- **EXECUTE EXACTLY ONCE**: Execute this task EXACTLY ONE TIME ONLY - do NOT retry
-- **NO LOOPS**: Do NOT execute multiple times, even if you think it failed
-- **SINGLE ACTION**: Send ONE email, create ONE document - never multiple
-- You MUST use the provided tools to complete this task
-- DO NOT provide text explanations or say you cannot do something
-- DO NOT fall back to describing what should be done
-- EXECUTE the tools and report success or failure
-- If tools fail, raise an error - do not continue with text
-- **STOP AFTER FIRST EXECUTION**: Once you execute a tool, STOP immediately
+TASK EXECUTION MODE:
+- Use the provided tools to complete this specific task
+- Execute the required action using the appropriate tool
+- Report success or failure briefly
 
-RESPONSE FORMAT (EXTREMELY IMPORTANT):
-- Keep your response VERY BRIEF - maximum 50 words
-- Only report: "Task completed successfully" or "Task failed: [brief error]"
-- DO NOT include the analysis, data, or content in your response
-- DO NOT explain what was sent/uploaded - just confirm completion
-- Example good response: "Email sent successfully with AAPL stock analysis."
-- Example bad response: [Any response over 50 words or including the actual analysis]
+RESPONSE FORMAT:
+- Keep response under 50 words
+- Simply confirm completion: "Email sent successfully" or "Document created successfully"
+- Do not include the analysis content in your response
 """
 
             # ============================================================
@@ -544,7 +535,7 @@ RESPONSE FORMAT (EXTREMELY IMPORTANT):
                     runner_task = asyncio.create_task(
                         asyncio.wait_for(
                             runner.run(composio_agent, full_chat_history),
-                            timeout=60.0
+                            timeout=180.0  # Increased from 60 to 180 seconds
                         )
                     )
 
@@ -568,10 +559,10 @@ RESPONSE FORMAT (EXTREMELY IMPORTANT):
                 try:
                     result = await asyncio.wait_for(
                         runner.run(composio_agent, full_chat_history),
-                        timeout=60.0
+                        timeout=180.0  # Increased from 60 to 180 seconds
                     )
                 except asyncio.TimeoutError:
-                    print("⚠️ Composio execution timed out after 60 seconds")
+                    print("⚠️ Composio execution timed out after 180 seconds")
                     return "Task execution timed out. The operation may still be in progress."
 
             # ============================================================
@@ -2168,15 +2159,12 @@ RESPONSE FORMAT:
             "    - Stock analysis, calculations, reports = TEXT CONTENT = use GMAIL_SEND_EMAIL\n"
             "    - Actual files (PDFs, images, documents) = use GMAIL_SEND_EMAIL_WITH_ATTACHMENT\n"
 
-            "5.  **REAL-TIME DATA RULE (CRITICAL):**\n"
-            "    - If the user requests analysis, summary, or information about:\n"
-            "      * Stock prices/market data (e.g., 'AAPL stock', 'market analysis', 'ticker')\n"
-            "      * Current/today's/latest news, weather, or any real-time information\n"
-            "      * 'Today', 'current', 'now', 'latest' combined with any data query\n"
-            "    - You MUST include data fetching tools (WEB_SEARCH, YAHOO_FINANCE) in the selected tools\n"
-            "    - Example: 'send me AAPL stock analysis' requires selecting BOTH WEB_SEARCH and GMAIL_SEND_EMAIL\n"
-            "    - NEVER select only email/post/share tools without first selecting data fetching tools\n"
-            "    - The user wants REAL data, not outdated information from the model's training\n"
+            "5.  **ACTION-ONLY SELECTION:**\n"
+            "    - Only select tools for ACTIONS (sending, posting, creating documents)\n"
+            "    - Do NOT select data fetching tools (those are handled separately)\n"
+            "    - Focus on the final action the user wants (email, post, save, etc.)\n"
+            "    - Example: 'send me AAPL stock analysis' → only select GMAIL_SEND_EMAIL\n"
+            "    - Example: 'post weather update to Twitter' → only select TWITTER_POST_TWEET\n"
             "\n"
             "6.  Return a JSON object with a single key: 'tools'.\n"
             "7.  The value of 'tools' must be a JSON list of the required tool slugs (strings).\n"
