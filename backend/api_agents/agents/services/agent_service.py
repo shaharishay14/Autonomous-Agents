@@ -857,10 +857,26 @@ List the exact steps you will take:
                 'calculator' in agent_model.agent_tools
             )
 
-            # If message needs specialized agent tools, use agent tools
+            # If message needs specialized agent tools, check if it also needs Composio actions
             if needs_yahoo_finance or needs_weather or needs_calculator:
-                print(f"  → Using agent tools (specialized tools needed: yahoo_finance={needs_yahoo_finance}, weather={needs_weather}, calc={needs_calculator})")
-                return await self._chat_with_agent_tools(agent_model, message, chat_history, callback)
+                # Check if message ALSO needs Composio actions (email, post, etc.)
+                action_keywords = ['send', 'email', 'post', 'tweet', 'share', 'upload', 'create']
+                needs_composio_action = any(keyword in message_lower for keyword in action_keywords)
+
+                if needs_composio_action and composio_tool_slugs:
+                    # HYBRID MODE: Need both agent tools (for data) AND Composio (for actions)
+                    print(f"  → Using HYBRID mode: agent tools for data + Composio for actions")
+                    print(f"     - Agent tools: yahoo_finance={needs_yahoo_finance}, weather={needs_weather}, calc={needs_calculator}")
+                    print(f"     - Composio actions: {composio_tool_slugs}")
+
+                    # Execute agent tools first to get data, then pass to Composio with enriched context
+                    return await self._chat_with_hybrid_tools(
+                        agent_model, message, composio_tool_slugs, chat_history, callback
+                    )
+                else:
+                    # Only need agent tools (data query without action)
+                    print(f"  → Using agent tools only (specialized tools needed: yahoo_finance={needs_yahoo_finance}, weather={needs_weather}, calc={needs_calculator})")
+                    return await self._chat_with_agent_tools(agent_model, message, chat_history, callback)
             else:
                 # Default: prefer Composio for connected apps
                 print("  → Using Composio tools (connected apps take precedence)")
@@ -877,6 +893,74 @@ List the exact steps you will take:
             # No tools at all
             print("  → No tools available, using basic chat")
             return await self._chat_without_tools(agent_model, message, chat_history, callback)
+
+    async def _chat_with_hybrid_tools(self, agent_model, message: str, composio_tool_slugs: List[str], chat_history: List[Dict[str, str]] = None, callback=None) -> str:
+        """
+        HYBRID MODE: Uses BOTH agent tools (for data fetching) AND Composio tools (for actions).
+
+        Workflow:
+        1. Execute with agent tools first to fetch data (yahoo_finance, weather, etc.)
+        2. Capture the data from agent tool execution
+        3. Add that data to conversation context
+        4. Execute with Composio tools (email, post, etc.) with enriched context
+
+        Example: "send me AAPL stock analysis to email"
+        - Step 1: Use yahoo_finance agent tool → get real stock data
+        - Step 2: Use GMAIL_SEND_EMAIL Composio tool → send email with that data
+
+        Args:
+            agent_model: Agent model instance
+            message: User message
+            composio_tool_slugs: List of Composio tool slugs (for actions)
+            chat_history: Previous chat messages
+            callback: Optional async callback function
+        """
+        print("🔀 HYBRID EXECUTION: Agent tools → Composio tools")
+
+        # Step 1: Execute with agent tools to get data
+        print("  Step 1: Fetching data with agent tools...")
+        agent_tools_response = await self._chat_with_agent_tools(
+            agent_model,
+            message,
+            chat_history,
+            callback
+        )
+
+        print(f"  ✅ Agent tools response ({len(agent_tools_response)} chars)")
+
+        # Step 2: Inject agent tools response into context for Composio execution
+        # Create enriched message that includes the data fetched by agent tools
+        enriched_message = (
+            f"{message}\n\n"
+            f"[Context: The following data was fetched by specialized tools]\n"
+            f"{agent_tools_response}"
+        )
+
+        # Add agent response to chat history for Composio execution
+        enriched_history = chat_history.copy() if chat_history else []
+        enriched_history.append({
+            "role": "user",
+            "content": message
+        })
+        enriched_history.append({
+            "role": "assistant",
+            "content": agent_tools_response
+        })
+
+        # Step 3: Execute with Composio tools (with enriched context)
+        print("  Step 2: Executing action with Composio tools (with fetched data)...")
+        composio_response = await self._chat_with_composio(
+            agent_model,
+            f"Based on the data above, {message}",
+            composio_tool_slugs,
+            enriched_history,
+            callback
+        )
+
+        print(f"  ✅ Composio action completed")
+
+        # Return combined response
+        return f"{agent_tools_response}\n\n{composio_response}"
 
     def authenticate_tool(self, tool_name: str, additional_fields: Dict[str, Any] = None, redirect_url: str = None) -> Dict[str, Any]:
         """
