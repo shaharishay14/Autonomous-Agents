@@ -452,6 +452,14 @@ CRITICAL INSTRUCTION FOR TASK EXECUTION:
 - DO NOT fall back to describing what should be done
 - EXECUTE the tools and report success or failure
 - If tools fail, raise an error - do not continue with text
+
+RESPONSE FORMAT (EXTREMELY IMPORTANT):
+- Keep your response VERY BRIEF - maximum 50 words
+- Only report: "Task completed successfully" or "Task failed: [brief error]"
+- DO NOT include the analysis, data, or content in your response
+- DO NOT explain what was sent/uploaded - just confirm completion
+- Example good response: "Email sent successfully with AAPL stock analysis."
+- Example bad response: [Any response over 50 words or including the actual analysis]
 """
 
             # ============================================================
@@ -1215,10 +1223,15 @@ CRITICAL INSTRUCTION FOR TASK EXECUTION:
                 task_results.append(f"✅ {action_name} completed successfully")
                 print(f"  ✅ {action_name} completed")
 
-                # Add this task's result to history for next tasks
+                # Add brief completion status to history (not full response)
+                # This prevents passing huge analysis text to next tasks
+                brief_status = f"{action_name}: Completed successfully"
+                if len(task_response) > 100:
+                    brief_status = f"{action_name}: Completed (response truncated for brevity)"
+
                 enriched_history.append({
                     "role": "assistant",
-                    "content": f"{action_name}: {task_response}"
+                    "content": brief_status
                 })
 
             except Exception as e:
