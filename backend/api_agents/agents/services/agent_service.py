@@ -448,11 +448,15 @@ List the exact steps you will take:
             if skip_intent_validation:
                 enhanced_instructions += "\n\n" + """
 CRITICAL INSTRUCTION FOR TASK EXECUTION:
+- **EXECUTE EXACTLY ONCE**: Execute this task EXACTLY ONE TIME ONLY - do NOT retry
+- **NO LOOPS**: Do NOT execute multiple times, even if you think it failed
+- **SINGLE ACTION**: Send ONE email, create ONE document - never multiple
 - You MUST use the provided tools to complete this task
 - DO NOT provide text explanations or say you cannot do something
 - DO NOT fall back to describing what should be done
 - EXECUTE the tools and report success or failure
 - If tools fail, raise an error - do not continue with text
+- **STOP AFTER FIRST EXECUTION**: Once you execute a tool, STOP immediately
 
 RESPONSE FORMAT (EXTREMELY IMPORTANT):
 - Keep your response VERY BRIEF - maximum 50 words
@@ -1245,22 +1249,14 @@ RESPONSE FORMAT:
             print(f"     Tools: {tool_slugs}")
 
             try:
-                # Create task-specific message with explicit single-execution instruction
+                # Create task-specific message
                 if fetched_data:
                     task_message = (
-                        f"CRITICAL INSTRUCTIONS:\n"
-                        f"1. Execute this SINGLE task EXACTLY ONCE - do NOT retry\n"
-                        f"2. Send the email/create the document ONLY ONCE\n"
-                        f"3. If you encounter any issue, report it and stop\n"
-                        f"4. Do NOT send multiple emails or create multiple documents\n\n"
                         f"Task: {action_name} - {message}\n\n"
                         f"Use the AAPL stock analysis data from the conversation above."
                     )
                 else:
-                    task_message = (
-                        f"CRITICAL: Execute EXACTLY ONCE. Do not retry.\n\n"
-                        f"Task: {action_name} - {message}"
-                    )
+                    task_message = f"Task: {action_name} - {message}"
 
                 # Execute this specific task with its tools
                 # Skip intent validation since we already detected the platform in task parsing
