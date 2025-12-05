@@ -81,13 +81,17 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
         """
         Starts the Composio auth flow and upserts a local connection record.
         Returns the auth_url and the local connection.
+
+        Optional: If agent_id is provided, automatically adds the tool to that agent's app_connections.
         """
         tool_name = request.data.get('tool_name')
         redirect_url = request.data.get('redirect_url')  # Optional: where to redirect after OAuth
+        agent_id = request.data.get('agent_id')  # Optional: agent to auto-connect tool
 
         print(f"🔌 Connection request received")
         print(f"   Tool name (raw): {tool_name}")
         print(f"   Redirect URL: {redirect_url}")
+        print(f"   Agent ID: {agent_id}")
         print(f"   Request data: {request.data}")
 
         if not tool_name:
@@ -140,10 +144,38 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                     }
                 )
 
+                # Optional: Auto-connect tool to specified agent
+                agent_updated = False
+                if agent_id:
+                    try:
+                        from api_agents.agents.models import Agent
+                        agent = Agent.objects.filter(
+                            user=request.user,
+                            id=agent_id
+                        ).first()
+
+                        if agent:
+                            normalized_tool = str(tool_name).upper()
+                            # Add tool to agent's app_connections if not already present
+                            if normalized_tool not in agent.app_connections:
+                                agent.app_connections.append(normalized_tool)
+                                agent.save(update_fields=['app_connections'])
+                                agent_updated = True
+                                print(f"✅ Auto-connected {normalized_tool} to agent {agent.name} (ID: {agent_id})")
+                            else:
+                                print(f"ℹ️  {normalized_tool} already connected to agent {agent.name}")
+                        else:
+                            print(f"⚠️  Agent with ID {agent_id} not found for user {request.user.username}")
+                    except Exception as e:
+                        print(f"⚠️  Failed to auto-connect tool to agent: {str(e)}")
+                        # Don't fail the entire request if agent update fails
+                        traceback.print_exc()
+
                 resp_data = {
                     'success': True,
                     'auth_url': result.get('auth_url'),
-                    'connection': ComposioConnectionSerializer(connection).data
+                    'connection': ComposioConnectionSerializer(connection).data,
+                    'agent_updated': agent_updated  # Indicate if agent was updated
                 }
                 return Response(resp_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
             else:
