@@ -18,7 +18,9 @@ from datetime import datetime
 from pathlib import Path
 
 # Setup Django environment
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add parent directory (backend) to path so we can import config
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, backend_dir)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 

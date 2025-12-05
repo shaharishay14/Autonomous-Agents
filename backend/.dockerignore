@@ -43,8 +43,8 @@ Dockerfile
 .dockerignore
 
 # Testing
-tests/
-test*.py
+# tests/  # Commented out to allow performance benchmarks in production
+# test*.py
 
 # Documentation
 README.md
