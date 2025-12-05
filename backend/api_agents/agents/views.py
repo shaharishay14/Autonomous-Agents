@@ -1406,7 +1406,9 @@ class AgentViewSet(viewsets.ModelViewSet):
 
                 # 5. Dynamically select tools (with history and file attachment info)
                 # 🚀 PHASE 2 OPTIMIZATION: Set flag to skip separate tool selection
-                use_phase2 = True  # Toggle this to enable/disable Phase 2 optimization
+                # DISABLED: Phase 2 loads too many tools (60), causes rate limits (26K tokens) and confusion
+                # TODO: Implement smarter Phase 2 that only loads relevant tool categories
+                use_phase2 = False  # Toggle this to enable/disable Phase 2 optimization
 
                 if use_phase2:
                     print(f"🚀 PHASE 2: Skipping separate tool selection (will load all tools)")
