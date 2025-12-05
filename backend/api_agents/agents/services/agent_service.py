@@ -2408,7 +2408,7 @@ RESPONSE FORMAT:
             initiate_params = {
                 "auth_config_id": auth_config_id,
                 "user_id": f"user_{self.user.id}",
-                "allow_multiple": True,  # Allow multiple connections to bypass Composio's duplicate check
+                "allow_multiple": False,  # Enforce one connection per tool per user
             }
 
             # Add callback URL if provided
