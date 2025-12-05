@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResponse, OpenApiParameter
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResponse, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 
 from ..workflows.models import Trigger, TriggerExecution, Workflow, WorkflowExecution
@@ -419,40 +419,206 @@ class WorkflowViewSet(viewsets.ModelViewSet):
         serializer = WorkflowExecutionSerializer(executions, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        tags=['workflows'],
+        operation_id='workflows_execute',
+        summary='Execute workflow with agent',
+        description='Executes a workflow by sending a prompt to a specific agent. Returns the agent response along with agent details.',
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'prompt': {
+                        'type': 'string',
+                        'description': 'Message/prompt to send to the agent (required)'
+                    },
+                    'agent_id': {
+                        'type': 'string',
+                        'format': 'uuid',
+                        'description': 'UUID of the agent to execute (required)'
+                    }
+                },
+                'required': ['prompt', 'agent_id']
+            }
+        },
+        responses={
+            200: OpenApiResponse(
+                description='Workflow executed successfully. Returns agent details, chat response message, and execution details.',
+                examples=[
+                    OpenApiExample(
+                        'Execute Success',
+                        value={
+                            'success': True,
+                            'agent': {
+                                'id': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+                                'name': 'Email Assistant',
+                                'prompt': 'You are an email assistant...',
+                                'app_connections': ['GMAIL'],
+                                'agent_tools': [],
+                                'user': 'username',
+                                'created_at': '2024-01-01T00:00:00Z',
+                                'updated_at': '2024-01-01T00:00:00Z'
+                            },
+                            'message': 'The agent response text from OpenAI chat...',
+                            'execution': {
+                                'id': 1,
+                                'executed_at': '2024-01-01T00:00:00Z',
+                                'execution_time_ms': 1234,
+                                'success': True
+                            }
+                        },
+                        response_only=True,
+                        status_codes=['200']
+                    )
+                ]
+            ),
+            400: OpenApiResponse(description='Validation error - prompt or agent_id missing, or agent not in workflow'),
+            401: OpenApiResponse(description='Authentication required'),
+            404: OpenApiResponse(description='Workflow or agent not found')
+        }
+    )
     @action(detail=True, methods=['post'])
     def execute(self, request, pk=None):
         """
-        Manually executes a workflow.
-        (Currently a mock implementation).
+        Executes a workflow by sending a prompt to a specific agent.
+        Returns the agent response along with agent details.
         """
         workflow = self.get_object()
 
         try:
             start_time = time.time()
 
-            # TODO: Implement actual workflow execution logic
-            input_data = request.data.get('input', {})
+            # Validate request data
+            prompt = request.data.get('prompt', '').strip()
+            agent_id = request.data.get('agent_id')
 
-            execution = WorkflowExecution.objects.create(
-                workflow=workflow,
-                input_data=input_data,
-                output_data={'status': 'success', 'message': 'Workflow executed successfully (MOCK)'},
-                execution_trace=[
-                    {'step': 1, 'node': 'start', 'status': 'completed'},
-                    {'step': 2, 'node': 'action', 'status': 'completed'},
-                ],
-                success=True,
-                execution_time_ms=int((time.time() - start_time) * 1000)
+            if not prompt:
+                return Response(
+                    {'error': 'prompt is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if not agent_id:
+                return Response(
+                    {'error': 'agent_id is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get the agent and verify it belongs to the workflow
+            try:
+                agent = Agent.objects.get(id=agent_id, user=request.user)
+            except Agent.DoesNotExist:
+                return Response(
+                    {'error': 'Agent not found or does not belong to you'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Verify agent is in the workflow
+            if not workflow.agents.filter(id=agent.id).exists():
+                return Response(
+                    {'error': 'Agent is not part of this workflow'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Initialize agent service
+            agent_service = AgentService(request.user)
+
+            # Build chat history (last 10 messages for context)
+            chat_history_formatted = []
+            chat_history_qs = ChatMessage.objects.filter(agent=agent).order_by('-created_at')[:10]
+            chat_history = list(chat_history_qs)
+            chat_history.reverse()  # Put in chronological order (oldest first)
+
+            for msg in chat_history:
+                chat_history_formatted.append({
+                    "role": msg.role,
+                    "content": msg.content
+                })
+
+            # Select tools for the prompt
+            specific_tools_slugs = asyncio.run(
+                agent_service.select_tools_for_prompt(
+                    user_prompt=prompt,
+                    app_names=agent.app_connections,
+                    chat_history=chat_history_formatted,
+                    has_file_attachments=False
+                )
             )
 
+            # Determine which chat method to use
+            has_composio_tools = bool(specific_tools_slugs and agent_service.composio_client)
+            has_agent_tools = bool(agent.agent_tools)
+
+            # Execute chat (non-streaming, synchronous)
+            async def run_chat():
+                if has_composio_tools and has_agent_tools:
+                    # Agent has both Composio and agent tools
+                    response = await agent_service._chat_with_mixed_tools(
+                        agent_model=agent,
+                        message=prompt,
+                        composio_tool_slugs=specific_tools_slugs,
+                        chat_history=chat_history_formatted,
+                        callback=None  # No streaming for execute
+                    )
+                elif has_composio_tools:
+                    # Only Composio tools
+                    response = await agent_service._chat_with_composio(
+                        agent_model=agent,
+                        message=prompt,
+                        specific_tools_slugs=specific_tools_slugs,
+                        chat_history=chat_history_formatted,
+                        callback=None,
+                        file_attachments=None
+                    )
+                elif has_agent_tools:
+                    # Only agent tools
+                    response = await agent_service._chat_with_agent_tools(
+                        agent_model=agent,
+                        message=prompt,
+                        chat_history=chat_history_formatted,
+                        callback=None,
+                        file_attachments=None
+                    )
+                else:
+                    # No tools - basic chat
+                    response = await agent_service._chat_without_tools(
+                        agent_model=agent,
+                        message=prompt,
+                        chat_history=chat_history_formatted,
+                        callback=None
+                    )
+                return response
+
+            # Run the chat
+            agent_response = asyncio.run(run_chat())
+
+            # Save execution log
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            execution = WorkflowExecution.objects.create(
+                workflow=workflow,
+                input_data={'prompt': prompt, 'agent_id': str(agent_id)},
+                output_data={'response': agent_response},
+                execution_trace=[
+                    {'step': 1, 'agent': agent.name, 'status': 'completed', 'response_length': len(agent_response)}
+                ],
+                success=True,
+                execution_time_ms=execution_time_ms
+            )
+
+            # Update workflow statistics
             workflow.execution_count += 1
             workflow.last_executed = execution.executed_at
             workflow.save()
 
+            # Serialize agent details
+            agent_serializer = AgentSerializer(agent, context={'request': request})
+
             return Response({
                 'success': True,
+                'agent': agent_serializer.data,
+                'message': agent_response,  # Response from OpenAI chat
                 'execution': WorkflowExecutionSerializer(execution).data
-            })
+            }, status=status.HTTP_200_OK)
 
         except Exception as e:
             traceback.print_exc()
