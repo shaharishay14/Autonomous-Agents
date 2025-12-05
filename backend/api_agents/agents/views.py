@@ -1405,19 +1405,30 @@ class AgentViewSet(viewsets.ModelViewSet):
                 agent_service = AgentService(request.user)
 
                 # 5. Dynamically select tools (with history and file attachment info)
-                print(f"Dynamically selecting tools for prompt: '{message[:50]}...'")
-                # ✅ select_tools_for_prompt is now async, no need for sync_to_async wrapper
-                specific_tools_slugs = await agent_service.select_tools_for_prompt(
-                    user_prompt=message,
-                    app_names=agent.app_connections,
-                    chat_history=chat_history_formatted,  # Pass rich history
-                    has_file_attachments=bool(file_ids)  # Indicate if files are attached
-                )
+                # 🚀 PHASE 2 OPTIMIZATION: Set flag to skip separate tool selection
+                use_phase2 = True  # Toggle this to enable/disable Phase 2 optimization
+
+                if use_phase2:
+                    print(f"🚀 PHASE 2: Skipping separate tool selection (will load all tools)")
+                    specific_tools_slugs = None  # Not needed - Phase 2 loads all tools internally
+                else:
+                    print(f"Dynamically selecting tools for prompt: '{message[:50]}...'")
+                    # ✅ select_tools_for_prompt is now async, no need for sync_to_async wrapper
+                    specific_tools_slugs = await agent_service.select_tools_for_prompt(
+                        user_prompt=message,
+                        app_names=agent.app_connections,
+                        chat_history=chat_history_formatted,  # Pass rich history
+                        has_file_attachments=bool(file_ids)  # Indicate if files are attached
+                    )
 
 
                 # 6. Execute the chat with streaming callbacks
                 # Determine which tools are available and route to appropriate handler
-                has_composio_tools = bool(specific_tools_slugs and agent_service.composio_client)
+                # 🚀 PHASE 2: If using Phase 2, check for connected apps instead of specific_tools_slugs
+                if use_phase2:
+                    has_composio_tools = bool(agent.app_connections and agent_service.composio_client)
+                else:
+                    has_composio_tools = bool(specific_tools_slugs and agent_service.composio_client)
                 has_agent_tools = bool(agent.agent_tools)
 
                 # Create async queue for real-time event streaming
@@ -1505,14 +1516,18 @@ class AgentViewSet(viewsets.ModelViewSet):
                             )
                         elif has_composio_tools:
                             # Only Composio tools
-                            print(f"Executing chat with {len(specific_tools_slugs)} Composio tools")
+                            if use_phase2:
+                                print(f"🚀 PHASE 2: Executing chat with ALL tools for connected apps")
+                            else:
+                                print(f"Executing chat with {len(specific_tools_slugs)} Composio tools")
                             response = await agent_service._chat_with_composio(
                                 agent_model=agent,
                                 message=message,
                                 specific_tools_slugs=specific_tools_slugs,
                                 chat_history=chat_history_formatted,
                                 callback=stream_callback,
-                                file_attachments=file_attachments_for_composio if file_attachments_for_composio else None
+                                file_attachments=file_attachments_for_composio if file_attachments_for_composio else None,
+                                use_phase2_optimization=use_phase2  # 🚀 Pass Phase 2 flag
                             )
                         elif has_agent_tools:
                             # Only agent tools
