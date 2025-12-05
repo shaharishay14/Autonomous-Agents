@@ -1506,14 +1506,33 @@ class AgentViewSet(viewsets.ModelViewSet):
                         print("🚀 Starting chat execution in background task...")
                         if has_composio_tools and has_agent_tools:
                             # Agent has both Composio and agent tools
-                            print(f"Executing chat with mixed tools: {len(specific_tools_slugs)} Composio + {len(agent.agent_tools)} agent tools")
-                            response = await agent_service._chat_with_mixed_tools(
-                                agent_model=agent,
-                                message=message,
-                                composio_tool_slugs=specific_tools_slugs,
-                                chat_history=chat_history_formatted,
-                                callback=stream_callback
-                            )
+                            if use_phase2:
+                                print(f"🚀 PHASE 2: Executing chat with ALL Composio tools + {len(agent.agent_tools)} agent tools")
+                            else:
+                                print(f"Executing chat with mixed tools: {len(specific_tools_slugs)} Composio + {len(agent.agent_tools)} agent tools")
+
+                            # Note: _chat_with_mixed_tools doesn't support Phase 2 yet
+                            # For now, if Phase 2 is enabled with mixed tools, we need to handle it
+                            if use_phase2:
+                                # TODO: Implement Phase 2 for mixed tools
+                                # For now, fall back to composio-only with Phase 2
+                                response = await agent_service._chat_with_composio(
+                                    agent_model=agent,
+                                    message=message,
+                                    specific_tools_slugs=specific_tools_slugs,
+                                    chat_history=chat_history_formatted,
+                                    callback=stream_callback,
+                                    file_attachments=file_attachments_for_composio if file_attachments_for_composio else None,
+                                    use_phase2_optimization=use_phase2
+                                )
+                            else:
+                                response = await agent_service._chat_with_mixed_tools(
+                                    agent_model=agent,
+                                    message=message,
+                                    composio_tool_slugs=specific_tools_slugs,
+                                    chat_history=chat_history_formatted,
+                                    callback=stream_callback
+                                )
                         elif has_composio_tools:
                             # Only Composio tools
                             if use_phase2:
