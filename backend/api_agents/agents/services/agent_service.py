@@ -511,6 +511,8 @@ class AgentService:
         """
         Securely loads and validates Composio Auth Config IDs from a JSON file.
         Prevents path traversal and validates JSON schema.
+
+        Expected format: {"TOOL_NAME": "ac_xxxxx", ...}
         """
         try:
             # Build path safely
@@ -536,24 +538,27 @@ class AgentService:
                 return {}
 
             # Validate structure and sanitize
+            # Format: {"TOOL_NAME": "ac_xxxxx"}
             sanitized_configs = {}
-            for app_name, config in configs.items():
-                if not isinstance(config, dict):
-                    logger.warning(f"Invalid config for {app_name}, skipping")
+            for app_name, auth_config_id in configs.items():
+                # Validate app_name is a string and uppercase
+                if not isinstance(app_name, str):
+                    logger.warning(f"Invalid app_name type for {app_name}, skipping")
                     continue
 
-                # Only keep allowed fields
-                sanitized_config = {}
-                for key in ['client_id', 'client_secret', 'redirect_uri']:
-                    if key in config:
-                        # Don't log actual secrets
-                        if key == 'client_secret':
-                            sanitized_config[key] = config[key]
-                        else:
-                            sanitized_config[key] = str(config[key])[:100]  # Limit length
+                app_name = app_name.upper()
 
-                if 'client_id' in sanitized_config and 'client_secret' in sanitized_config:
-                    sanitized_configs[app_name] = sanitized_config
+                # Validate auth_config_id is a string starting with "ac_"
+                if not isinstance(auth_config_id, str):
+                    logger.warning(f"Invalid auth_config_id type for {app_name}, skipping")
+                    continue
+
+                if not auth_config_id.startswith('ac_'):
+                    logger.warning(f"Invalid auth_config_id format for {app_name}: {mask_sensitive_data(auth_config_id)}")
+                    continue
+
+                # Limit length and sanitize
+                sanitized_configs[app_name] = str(auth_config_id)[:50]
 
             logger.info(f"✅ Loaded {len(sanitized_configs)} auth configs securely")
             return sanitized_configs
@@ -3083,30 +3088,66 @@ RESPONSE FORMAT:
     def disconnect_tool(self, tool_name: str) -> Dict[str, Any]:
         """
         Disconnects a tool by deleting it from Composio.
+        Finds the connection and deletes it using the Composio API.
         """
-        # ... (This function is unchanged and correct) ...
         if not self.composio_client:
+            logger.error("Composio client not configured for disconnect_tool")
             return {"success": False, "error": "Composio client not configured"}
+
         try:
             tool_name = tool_name.upper()
+            logger.info(f"🔌 Attempting to disconnect {tool_name}")
+
+            # Get all connections for this user
             connections = self.get_connection_details()
+            logger.info(f"📊 Found {len(connections)} total connections")
+
+            # Find the specific connection to delete
             connection_to_delete = None
             for conn in connections:
                 if conn['tool_name'] == tool_name:
                     connection_to_delete = conn
                     break
+
             if not connection_to_delete:
-                return {"success": False, "error": f"No active connection found for {tool_name}"}
+                logger.warning(f"⚠️  No active connection found for {tool_name} in Composio")
+                return {
+                    "success": False,
+                    "error": f"No active connection found for {tool_name}",
+                    "available_connections": [c['tool_name'] for c in connections]
+                }
+
             connection_id = connection_to_delete['connection_id']
+            logger.info(f"🎯 Found connection to delete: {tool_name} (ID: {connection_id})")
+
+            # Attempt to delete from Composio
             try:
                 self.composio_client.connected_accounts.delete(connection_id)
-                print(f"✅ Disconnected {tool_name} (connection_id: {connection_id})")
-                return {"success": True, "message": f"Successfully disconnected {tool_name}", "connection_id": connection_id}
+                logger.info(f"✅ Successfully disconnected {tool_name} from Composio (ID: {connection_id})")
+
+                # Invalidate connection cache
+                entity_id = f"user_{self.user.id}"
+                self._invalidate_connection_cache(entity_id=entity_id, tool_name=tool_name)
+
+                return {
+                    "success": True,
+                    "message": f"Successfully disconnected {tool_name}",
+                    "connection_id": connection_id,
+                    "tool_name": tool_name
+                }
+
             except Exception as delete_error:
-                print(f"Error deleting connection: {delete_error}")
-                return {"success": False, "error": f"Failed to disconnect: {str(delete_error)}"}
+                logger.error(f"❌ Failed to delete connection from Composio: {delete_error}")
+                import traceback
+                traceback.print_exc()
+                return {
+                    "success": False,
+                    "error": f"Failed to disconnect from Composio: {str(delete_error)}",
+                    "connection_id": connection_id
+                }
+
         except Exception as e:
-            print(f"Error in disconnect_tool: {e}")
+            logger.error(f"❌ Error in disconnect_tool for {tool_name}: {e}")
             import traceback
             traceback.print_exc()
             return {"success": False, "error": str(e)}
