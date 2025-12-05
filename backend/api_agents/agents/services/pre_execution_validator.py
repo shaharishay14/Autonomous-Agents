@@ -231,11 +231,24 @@ class PreExecutionValidator:
         date_keywords = ["yesterday", "last week", "last month", "previous", "earlier", "ago"]
         has_date_reference = any(keyword in user_message.lower() for keyword in date_keywords)
 
+        # Check if date reference is critical (requires exact calculation)
+        critical_date_actions = ["stock", "price", "market", "trading", "financial", "data"]
+        date_is_critical = any(keyword in user_message.lower() for keyword in critical_date_actions)
+
+        # Check if date is descriptive/casual ("yesterday's events", "last week's summary")
+        descriptive_date_phrases = ["about", "summary of", "regarding", "discussion of", "recap of"]
+        date_is_descriptive = any(phrase in user_message.lower() for phrase in descriptive_date_phrases)
+
         if has_date_reference:
             if intent.calculated_date is None:
                 # Date mentioned but not calculated
-                blocking.append(f"Date reference detected ('{user_message[:50]}...') but not calculated")
-                actions.append("CALCULATE_DATE: Use current date to compute exact date")
+                if date_is_critical and not date_is_descriptive:
+                    # CRITICAL: Stock data, financial data needs exact date
+                    blocking.append(f"Date reference detected ('{user_message[:50]}...') but not calculated")
+                    actions.append("CALCULATE_DATE: Use current date to compute exact date")
+                else:
+                    # DESCRIPTIVE: "yesterday's events" - date is context, not requirement
+                    warnings.append(f"Date reference detected but not critical for this task")
             else:
                 # Date calculated successfully
                 warnings.append(f"Date calculated as {intent.calculated_date}. Verify with user if critical.")
@@ -269,7 +282,17 @@ class PreExecutionValidator:
         if requires_platform:
             if intent.platform is None:
                 # Platform not identified
-                if intent.confidence < 60:
+                # Check if there's only ONE obvious platform for this action
+                social_platforms = [app for app in connected_apps if app in ["TWITTER", "TWITTEROAUTH2", "INSTAGRAM", "LINKEDIN", "FACEBOOK"]]
+                messaging_platforms = [app for app in connected_apps if app in ["GMAIL", "SLACK", "OUTLOOK"]]
+
+                # If only one social platform and action is "post" → auto-infer
+                if intent.action == "post" and len(social_platforms) == 1:
+                    warnings.append(f"Platform not specified. Inferring {social_platforms[0]} (only social platform connected)")
+                # If only one messaging platform and action is "send" → auto-infer
+                elif intent.action == "send" and len(messaging_platforms) == 1:
+                    warnings.append(f"Platform not specified. Inferring {messaging_platforms[0]} (only messaging platform connected)")
+                elif intent.confidence < 60:
                     # Low confidence - genuinely ambiguous
                     blocking.append("Cannot determine target platform from context")
                     actions.append(f"INFER_PLATFORM: Choose from connected apps: {', '.join(connected_apps[:3])}")
@@ -308,8 +331,16 @@ class PreExecutionValidator:
         share_keywords = ["share", "post", "send", "upload"]
         is_sharing = any(keyword in user_message.lower() for keyword in share_keywords)
 
-        if needs_generation and is_sharing:
+        # Check if this is a MULTI-STEP request (generate AND share in one command)
+        multi_step_indicators = [
+            "and share", "and send", "and post", "then share", "then send", "then post",
+            "and email", "then email"
+        ]
+        is_multi_step = any(indicator in user_message.lower() for indicator in multi_step_indicators)
+
+        if needs_generation and is_sharing and not is_multi_step:
             # User wants to share "analysis" - need to check if it exists
+            # BUT: Skip this check for multi-step requests where content will be generated first
             content_exists = False
 
             # Check if assistant recently generated substantial content
@@ -330,8 +361,16 @@ class PreExecutionValidator:
                         break
 
             if not content_exists:
-                blocking.append("User requests to share 'analysis' but no analysis has been generated yet")
-                actions.append("GENERATE_FIRST: Create the analysis/summary/report BEFORE sharing it")
+                # Only block if it's NOT a creation request
+                creation_verbs = ["get", "fetch", "create", "generate", "find", "search"]
+                is_creating = any(verb in user_message.lower() for verb in creation_verbs)
+
+                if not is_creating:
+                    blocking.append("User requests to share 'analysis' but no analysis has been generated yet")
+                    actions.append("GENERATE_FIRST: Create the analysis/summary/report BEFORE sharing it")
+                else:
+                    # It's a multi-step task - just warn
+                    warnings.append("Multi-step task detected: Will generate content first, then share")
 
         # Check for "this" or "it" without clear referent
         vague_refs = ["this", "it", "that"]
