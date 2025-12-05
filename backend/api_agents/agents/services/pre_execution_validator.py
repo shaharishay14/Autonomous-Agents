@@ -159,6 +159,19 @@ class PreExecutionValidator:
         ]
         refers_to_data = any(keyword in user_message.lower() for keyword in data_keywords)
 
+        # Check if user is asking to CREATE/GENERATE new content (not reference existing)
+        creation_keywords = [
+            "create", "write", "make", "generate", "compose", "draft",
+            "about", "for", "regarding"  # Topic indicators
+        ]
+        is_creating_content = any(keyword in user_message.lower() for keyword in creation_keywords)
+
+        # Check if intent says content will be generated
+        content_will_be_generated = (
+            intent.content_reference in ["generated_content", None] or
+            "generated" in str(intent.content_reference).lower()
+        )
+
         if requires_file and has_vague_ref:
             # User said "share this" or "send the file"
             # BUT: Check if "this"/"it" refers to data/content, not a file
@@ -166,8 +179,12 @@ class PreExecutionValidator:
                 # "Send this stock analysis" - refers to data, not a file
                 # No blocking needed - the data will be generated/fetched
                 pass
+            elif is_creating_content or content_will_be_generated:
+                # "Create a post about our product" - asking for NEW content
+                # No file required - content will be generated
+                pass
             elif not available_files:
-                # CRITICAL: No file available AND no data keywords
+                # CRITICAL: No file available AND no data keywords AND not creating content
                 # This is likely a genuine file reference
                 blocking.append("File reference detected ('this'/'it') but no files available")
                 actions.append("SEARCH_FOR_FILE: Check if file needs to be downloaded from Drive/Cloud")
