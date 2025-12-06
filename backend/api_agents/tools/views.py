@@ -140,16 +140,25 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                     response = agent_service.composio_client.connected_accounts.list()
                     all_connections = response.items if hasattr(response, 'items') else list(response)
 
+                    print(f"📋 Got {len(all_connections)} total connections from Composio")
+
                     deleted_count = 0
-                    for conn in all_connections:
+                    for idx, conn in enumerate(all_connections, 1):
                         # Get entity/user_id (try all possible attribute names)
                         conn_entity = getattr(conn, 'entityId', None) or getattr(conn, 'entity_id', None) or getattr(conn, 'userId', None) or getattr(conn, 'user_id', None)
+
+                        # Get tool name for logging
+                        conn_app = None
+                        if hasattr(conn, 'toolkit') and conn.toolkit:
+                            conn_app = getattr(conn.toolkit, 'slug', None)
+
+                        conn_id = getattr(conn, 'id', None)
+                        print(f"  [{idx}] entity={conn_entity}, app={conn_app}, id={conn_id}")
 
                         # Match this user
                         if conn_entity == entity_id:
                             # Get tool name
-                            conn_app = None
-                            if hasattr(conn, 'toolkit') and conn.toolkit:
+                            if not conn_app and hasattr(conn, 'toolkit') and conn.toolkit:
                                 conn_app = getattr(conn.toolkit, 'slug', None)
 
                             # Match this tool
