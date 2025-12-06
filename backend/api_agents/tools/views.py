@@ -142,8 +142,8 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
 
                     deleted_count = 0
                     for conn in all_connections:
-                        # Get entity/user_id
-                        conn_entity = getattr(conn, 'user_id', None) or getattr(conn, 'entityId', None) or getattr(conn, 'entity_id', None)
+                        # Get entity/user_id (try all possible attribute names)
+                        conn_entity = getattr(conn, 'entityId', None) or getattr(conn, 'entity_id', None) or getattr(conn, 'userId', None) or getattr(conn, 'user_id', None)
 
                         # Match this user
                         if conn_entity == entity_id:
@@ -155,6 +155,7 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                             # Match this tool
                             if conn_app and conn_app.upper() == tool_name:
                                 conn_id = getattr(conn, 'id', None)
+                                print(f"🔍 Found {tool_name} connection {conn_id} for {entity_id} - checking if in database...")
 
                                 # Check if this connection is in our database
                                 db_conn = ComposioConnection.objects.filter(
@@ -167,6 +168,8 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                                     agent_service.composio_client.connected_accounts.delete(connection_id=conn_id)
                                     deleted_count += 1
                                     print(f"✅ Deleted ghost connection {conn_id}")
+                                else:
+                                    print(f"ℹ️  Connection {conn_id} exists in database - not a ghost")
 
                     if deleted_count > 0:
                         print(f"🧹 Deleted {deleted_count} ghost connection(s), retrying authentication...")
