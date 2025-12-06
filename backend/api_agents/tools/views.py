@@ -136,8 +136,11 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                     # Search for and delete ghost connections for this user + tool
                     print(f"🔍 Searching Composio for ghost {tool_name} connections for {entity_id}...")
 
-                    # Get all connections from Composio
-                    response = agent_service.composio_client.connected_accounts.list()
+                    # Get all connections from Composio for THIS USER ONLY
+                    # IMPORTANT: Use user_ids filter to get all user's connections (not just first 10)
+                    response = agent_service.composio_client.connected_accounts.list(
+                        user_ids=[entity_id]
+                    )
                     all_connections = response.items if hasattr(response, 'items') else list(response)
 
                     print(f"📋 Got {len(all_connections)} total connections from Composio")
