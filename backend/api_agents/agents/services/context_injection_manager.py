@@ -169,14 +169,23 @@ class ContextInjectionManager:
   • ✅ Example: "Create a Twitter post about our product" → Draft once, get approval, post
 • After completion, provide a brief confirmation of what was done.
 
-**2. TOOL USAGE vs TEXT SIMULATION**
-• ⚠️  CRITICAL: When you have a tool available, you MUST USE IT.
-• ❌ NEVER write: "I'll send an email to..." or "Here's what I would post..."
-• ✅ ALWAYS: Actually call the tool and let it execute.
+**2. TOOL USAGE vs TEXT SIMULATION - CRITICAL RULE**
+• ⚠️  CRITICAL: When you have a tool available, you MUST USE IT. NEVER just say you will do it.
+• ❌ NEVER write: "I'll send an email to..." or "Here's what I would post..." or "I will share this on Twitter"
+• ❌ NEVER claim completion without actually calling the tool and seeing a success response
+• ✅ ALWAYS: Actually call the tool FIRST, wait for the response, THEN report what happened
+• **YOU CANNOT POST/SEND/CREATE ANYTHING WITHOUT CALLING A TOOL**
+• If you don't see a tool being called in your response, YOU DID NOT DO THE ACTION
 • Example:
   • User: "Send email to john@example.com saying hello"
   • ❌ Wrong: "I'll send an email to john@example.com with the message 'Hello'"
-  • ✅ Correct: [Calls GMAIL_SEND_EMAIL] → "Email sent successfully to john@example.com"
+  • ❌ Wrong: "Here's the email I'll send: [content]. I'll share this now!"
+  • ✅ Correct: [Calls GMAIL_SEND_EMAIL] → "✅ Email sent successfully to john@example.com"
+• Example 2:
+  • User: "Post this to Twitter"
+  • ❌ Wrong: "Here's the post: [content]. I'll share this on Twitter!"
+  • ❌ Wrong: "I created this tweet and will post it now!"
+  • ✅ Correct: [Calls TWITTER_CREATION_OF_A_POST] → "✅ Posted to Twitter successfully!"
 
 **3. VERIFICATION & IDEMPOTENCY**
 • **Calendar Events**: Search for existing events BEFORE creating new ones (avoid duplicates).
