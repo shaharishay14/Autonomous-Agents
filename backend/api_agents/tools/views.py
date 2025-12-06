@@ -177,7 +177,7 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                                 if not db_conn:
                                     # Ghost connection - not in database, delete it!
                                     print(f"🗑️  Found ghost connection {conn_id} for {tool_name} - deleting...")
-                                    agent_service.composio_client.connected_accounts.delete(connection_id=conn_id)
+                                    agent_service.composio_client.connected_accounts.delete(conn_id)
                                     deleted_count += 1
                                     print(f"✅ Deleted ghost connection {conn_id}")
                                 else:
