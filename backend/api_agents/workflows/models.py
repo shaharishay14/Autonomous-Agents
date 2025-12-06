@@ -60,6 +60,20 @@ class TriggerExecution(models.Model):
         return f"{self.trigger.name} - {self.triggered_at}"
 
 
+class WorkflowAgent(models.Model):
+    """Through model for Workflow-Agent relationship to preserve order"""
+    workflow = models.ForeignKey('Workflow', on_delete=models.CASCADE)
+    agent = models.ForeignKey('api_agents.Agent', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True, help_text="When this agent was added to the workflow")
+
+    class Meta:
+        ordering = ['created_at']
+        unique_together = [['workflow', 'agent']]
+
+    def __str__(self):
+        return f"{self.workflow.name} - {self.agent.name}"
+
+
 class Workflow(models.Model):
     """Visual workflows - combine triggers, actions, and logic"""
     STATUS_CHOICES = [
@@ -69,15 +83,11 @@ class Workflow(models.Model):
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='workflows')
-    agent = models.ForeignKey('api_agents.Agent', on_delete=models.CASCADE, related_name='workflows', null=True, blank=True)
+    agents = models.ManyToManyField('api_agents.Agent', through='WorkflowAgent', related_name='workflows', blank=True, help_text="Agents associated with this workflow")
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-
-    # React Flow data structure
-    nodes = models.JSONField(default=list, help_text="Workflow nodes (triggers, actions, conditions)")
-    edges = models.JSONField(default=list, help_text="Connections between nodes")
-    viewport = models.JSONField(default=dict, help_text="Viewport position and zoom")
+    nodes = models.IntegerField(default=0, help_text="Number of agents in the workflow (updated automatically)")
 
     # Statistics
     execution_count = models.IntegerField(default=0)
@@ -91,6 +101,11 @@ class Workflow(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.status} ({self.user.username})"
+
+    def update_nodes_count(self):
+        """Update the nodes count based on the number of agents"""
+        self.nodes = self.agents.count()
+        self.save(update_fields=['nodes'])
 
 
 class WorkflowExecution(models.Model):
