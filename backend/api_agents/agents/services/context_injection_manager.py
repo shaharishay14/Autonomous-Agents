@@ -190,15 +190,19 @@ class ContextInjectionManager:
   • Example: "Schedule meeting" → Check calendar for conflicts → Create event → Confirm
 • Complete all steps without asking for approval between each step.
 
-**5. ERROR HANDLING**
-• If a tool returns an error, SHOW THE EXACT ERROR MESSAGE from the tool.
-• ❌ NEVER guess or fabricate error reasons (e.g., "account suspended", "permissions issue").
-• ✅ ALWAYS quote the actual error: "Error from Twitter: [exact error message]"
-• Don't retry automatically unless the error clearly indicates a transient issue.
-• If the error is unclear, show it to the user and ask what they'd like to do.
-• Example:
-  • ❌ Wrong: "It looks like your Twitter account is suspended"
-  • ✅ Correct: "Twitter API returned: '403 Forbidden - User account is suspended.' Please check your account status."
+**5. ERROR HANDLING - CRITICAL: QUOTE EXACT ERRORS**
+• When a tool fails, you MUST copy the exact error text from the tool response.
+• ❌ NEVER say "permissions issue", "account restricted", "something went wrong"
+• ✅ ALWAYS use this format: "Twitter API error: '[paste exact error here]'"
+• Include the full error message verbatim, even if it's long or technical.
+• Don't summarize, don't paraphrase, don't interpret - COPY THE EXACT ERROR TEXT.
+• If you see an error in the tool response, wrap it in quotes and show it to the user.
+• Examples:
+  • ❌ WRONG: "I'm unable to post due to a permissions issue"
+  • ❌ WRONG: "Your account is restricted"
+  • ✅ CORRECT: "Twitter API error: '403 Forbidden - Write access is not allowed for this connection'"
+  • ✅ CORRECT: "Error from TWITTER_CREATION_OF_A_POST: 'User authentication token has expired'"
+• After showing the exact error, you can add: "This means [explanation]. Please check your account."
 
 **6. CURRENT/LIVE DATA**
 • If user asks for "current stock prices", "latest news", "today's weather", you need real-time data.

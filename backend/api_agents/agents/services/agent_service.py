@@ -33,6 +33,89 @@ from .execution_logger import get_execution_logger
 logger = logging.getLogger(__name__)
 
 
+# Retry mechanism with exponential backoff and TTL
+def retry_with_backoff(max_retries=3, initial_delay=1.0, max_delay=10.0, exponential_base=2, ttl_seconds=30):
+    """
+    Decorator for retrying async functions with exponential backoff and TTL.
+
+    Args:
+        max_retries: Maximum number of retry attempts
+        initial_delay: Initial delay in seconds before first retry
+        max_delay: Maximum delay between retries
+        exponential_base: Base for exponential backoff calculation
+        ttl_seconds: Maximum total time allowed for all retries (Time To Live)
+
+    Retries on:
+        - Rate limit errors (429, "rate limit", "too many requests")
+        - Temporary network issues (500, 502, 503, 504)
+        - Timeout errors
+
+    Does NOT retry on:
+        - Authentication errors (401, 403)
+        - Not found errors (404)
+        - Bad request errors (400)
+    """
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            start_time = time.time()
+            last_exception = None
+
+            for attempt in range(max_retries + 1):
+                # Check if we've exceeded TTL
+                elapsed = time.time() - start_time
+                if elapsed > ttl_seconds:
+                    logger.warning(f"⏱️ TTL exceeded ({elapsed:.1f}s > {ttl_seconds}s) for {func.__name__}")
+                    break
+
+                try:
+                    return await func(*args, **kwargs)
+
+                except Exception as e:
+                    last_exception = e
+                    error_str = str(e).lower()
+
+                    # Determine if error is retryable
+                    is_rate_limit = any(keyword in error_str for keyword in ['rate limit', '429', 'too many requests', 'quota exceeded'])
+                    is_server_error = any(keyword in error_str for keyword in ['500', '502', '503', '504', 'timeout', 'timed out'])
+                    is_retryable = is_rate_limit or is_server_error
+
+                    # Don't retry on auth/permission errors
+                    is_auth_error = any(keyword in error_str for keyword in ['401', '403', 'unauthorized', 'forbidden', 'permission denied'])
+                    is_not_found = '404' in error_str or 'not found' in error_str
+                    is_bad_request = '400' in error_str or 'bad request' in error_str
+
+                    if is_auth_error or is_not_found or is_bad_request:
+                        logger.info(f"❌ Non-retryable error in {func.__name__}: {type(e).__name__}")
+                        raise  # Don't retry, raise immediately
+
+                    if not is_retryable or attempt == max_retries:
+                        logger.warning(f"❌ Final attempt failed for {func.__name__}: {type(e).__name__}")
+                        raise  # Last attempt or non-retryable error
+
+                    # Calculate delay with exponential backoff
+                    delay = min(initial_delay * (exponential_base ** attempt), max_delay)
+                    # Add jitter to prevent thundering herd
+                    delay = delay * (0.5 + random.random())
+
+                    # Check if delay would exceed TTL
+                    if elapsed + delay > ttl_seconds:
+                        logger.warning(f"⏱️ Skipping retry (would exceed TTL) for {func.__name__}")
+                        break
+
+                    retry_reason = "rate limit" if is_rate_limit else "server error"
+                    logger.info(f"🔄 Retry {attempt + 1}/{max_retries} for {func.__name__} ({retry_reason}) in {delay:.1f}s")
+
+                    await asyncio.sleep(delay)
+
+            # If we get here, all retries failed
+            if last_exception:
+                raise last_exception
+
+        return wrapper
+    return decorator
+
+
 # Fun, user-friendly status messages (no "Composio" mentioned)
 TOOL_LOADING_MESSAGES = [
     "Gathering my tools... 🔧",
@@ -1223,11 +1306,14 @@ class AgentService:
                 await callback('error', {'error': safe_error})
             return f"Error: {safe_error}"
 
+    @retry_with_backoff(max_retries=2, initial_delay=1.0, max_delay=5.0, ttl_seconds=45)
     async def _chat_with_composio(self, agent_model, message: str, specific_tools_slugs: List[str] = None, chat_history: List[Dict[str, str]] = None, callback=None, file_attachments: List[Dict] = None, skip_intent_validation: bool = False, use_phase2_optimization: bool = False) -> str:
         """
         Runs the full agent execution with a specific set of tools and chat history.
 
         ENHANCED with:
+        - Automatic retry with exponential backoff for rate limits and transient errors
+        - TTL (Time To Live) limit of 45 seconds for all retry attempts
         - Intent resolution for vague language
         - Pre-execution validation
         - Execution logging for debugging
