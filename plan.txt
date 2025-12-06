@@ -1,0 +1,102 @@
+ Code Cleanup and Optimization Plan for agent_service.py
+
+ Phase 1: Critical Security Fixes (Immediate)
+
+ 1. Fix Prompt Injection Vulnerability
+   - Sanitize all user inputs before adding to prompts (lines 399-459)
+   - Add input validation for agent_model.prompt
+   - Escape special characters in file content and paths
+ 2. Secure API Key Handling
+   - Add validation for API keys at startup
+   - Implement key rotation mechanism
+   - Prevent keys from appearing in logs/errors
+ 3. Fix Path Traversal Risk
+   - Validate auth_configs.json with JSON schema
+   - Add path sanitization for file attachments
+   - Implement whitelist for allowed file paths
+
+ Phase 2: Performance Optimizations
+
+ 4. Parallelize Task Execution
+   - Replace sequential task execution with asyncio.gather() (lines 1239-1314)
+   - Run independent tasks concurrently
+   - Estimated 3-4x speedup for multi-task requests
+ 5. Implement Connection Caching
+   - Cache Composio connections with 5-minute TTL
+   - Reduce API calls by 80%
+   - Add connection pool management
+ 6. Fix Memory Leaks
+   - Add TTL-based eviction to tools_cache
+   - Limit chat history to last 50 messages
+   - Use StringIO for string concatenation
+
+ Phase 3: Code Quality Refactoring
+
+ 7. Break Down Large Methods
+   - Split _chat_with_composio (413 lines) into 5 focused methods:
+       - _validate_intent()
+     - _load_tools()
+     - _execute_composio()
+     - _handle_response()
+     - _cleanup_on_error()
+ 8. Extract Duplicate Code
+   - Create shared _build_file_context() method
+   - Create _handle_timeout() wrapper
+   - Extract connection management logic
+ 9. Improve Error Handling
+   - Create consistent error response format
+   - Add retry logic with exponential backoff
+   - Implement circuit breaker pattern
+
+ Phase 4: Infrastructure Improvements
+
+ 10. Replace Print with Logging
+   - Configure Python logging with levels
+   - Add structured logging for better debugging
+   - Implement log rotation
+ 11. Add Configuration Management
+   - Move hardcoded values to settings
+   - Create timeout configuration
+   - Make task messages configurable
+ 12. Optimize Database Operations
+   - Use async database queries
+   - Add database connection pooling
+   - Implement query result caching
+
+ Implementation Priority:
+
+ Week 1 (Critical):
+ - Fix prompt injection (2 hours)
+ - Add input sanitization (3 hours)
+ - Fix unbounded cache (1 hour)
+ - Parallelize task execution (4 hours)
+
+ Week 2 (High Priority):
+ - Break down _chat_with_composio method (6 hours)
+ - Implement connection caching (3 hours)
+ - Add proper logging (2 hours)
+ - Fix memory leaks (3 hours)
+
+ Week 3 (Medium Priority):
+ - Extract duplicate code (4 hours)
+ - Improve error handling (4 hours)
+ - Add configuration management (3 hours)
+ - Optimize database queries (3 hours)
+
+ Expected Outcomes:
+
+ ✅ Security: Eliminate prompt injection and path traversal vulnerabilities
+ ✅ Performance: 3-4x faster multi-task execution, 80% fewer API calls
+ ✅ Memory: Fix memory leaks, reduce usage by ~60%
+ ✅ Maintainability: Reduce method sizes by 70%, eliminate code duplication
+ ✅ Reliability: Add proper timeouts, retry logic, and error recovery
+
+ Testing Strategy:
+
+ - Add unit tests for each refactored method
+ - Create integration tests for multi-task flows
+ - Add security tests for input validation
+ - Performance benchmarks before/after
+ - Load testing for memory leaks
+
+ Would you like me to proceed with implementing these improvements?

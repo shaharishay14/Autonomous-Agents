@@ -507,8 +507,9 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                 if inactive_deleted > 0:
                     print(f"🗑️  Cleaned up {inactive_deleted} inactive connection(s)")
 
-                # Cleanup: Delete dangling connections in Composio
-                print(f"🔍 Checking for dangling Composio connections...")
+                # Log connections in Composio that aren't in database (for debugging)
+                # DO NOT delete - ghost cleanup in create() handles cleanup when needed
+                print(f"🔍 Checking Composio connections sync status...")
                 # Get active connections from database (our source of truth)
                 db_active_connections = set(
                     ComposioConnection.objects.filter(
@@ -519,7 +520,7 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                 )
                 print(f"📊 Active connections in database: {db_active_connections}")
 
-                # Get ALL connections from Composio for this user (including non-ACTIVE ones)
+                # Get ALL connections from Composio for this user (for sync logging)
                 try:
                     all_composio_connections = agent_service.composio_client.connected_accounts.list()
                     if hasattr(all_composio_connections, 'items'):
@@ -529,7 +530,7 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                     elif hasattr(all_composio_connections, '__iter__'):
                         all_composio_connections = list(all_composio_connections)
 
-                    dangling_deleted = 0
+                    unsynced_count = 0
                     for conn in all_composio_connections:
                         # Check if this connection belongs to current user
                         conn_entity = None
@@ -551,10 +552,10 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                         if hasattr(conn, 'id'): conn_id = conn.id
                         elif hasattr(conn, 'connectionId'): conn_id = conn.connectionId
 
-                        # If this connection is NOT in our active database, check if it should be deleted
-                        # SAFETY: Only delete if status is INITIATED (incomplete OAuth), not ACTIVE/ENABLED
+                        # Log connections not in our database
+                        # These will be synced if ACTIVE/ENABLED, or handled by ghost cleanup if causing issues
                         if tool_name != "Unknown" and tool_name not in db_active_connections:
-                            # Check connection status before deleting
+                            # Check connection status for logging
                             conn_status = None
                             if hasattr(conn, 'status'): conn_status = conn.status
                             elif hasattr(conn, 'connectionStatus'): conn_status = conn.connectionStatus
@@ -562,27 +563,19 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
 
                             status_str = str(conn_status).upper() if conn_status else "UNKNOWN"
 
-                            # SAFETY: Only delete INITIATED connections (incomplete OAuth)
-                            # NEVER delete ACTIVE or ENABLED connections - they may just not be synced to DB yet
-                            if status_str == 'INITIATED':
-                                try:
-                                    if conn_id:
-                                        print(f"🗑️  Deleting dangling INITIATED connection: {tool_name} (ID: {conn_id})")
-                                        agent_service.composio_client.connected_accounts.delete(conn_id)
-                                        dangling_deleted += 1
-                                        print(f"✅ Deleted dangling connection: {tool_name}")
-                                except Exception as e:
-                                    print(f"❌ Failed to delete dangling connection {tool_name}: {e}")
-                            else:
-                                print(f"⚠️  Found connection {tool_name} (status: {status_str}) not in DB - keeping (may need sync)")
+                            # Just log - don't delete
+                            # Ghost connections are handled by auto-cleanup in create() when user gets "Multiple connected accounts" error
+                            # INITIATED connections are harmless and deleting them causes race conditions during OAuth
+                            print(f"ℹ️  Found {tool_name} connection (status: {status_str}) in Composio but not in DB - will sync if ACTIVE/ENABLED")
+                            unsynced_count += 1
 
-                    if dangling_deleted > 0:
-                        print(f"🗑️  Cleaned up {dangling_deleted} dangling Composio connection(s)")
+                    if unsynced_count == 0:
+                        print(f"✅ Composio and database are in sync")
                     else:
-                        print(f"✅ No dangling connections found - Composio and database are in sync")
+                        print(f"ℹ️  Found {unsynced_count} connection(s) in Composio not yet in DB (may sync next)")
 
                 except Exception as e:
-                    print(f"⚠️  Could not clean up dangling connections: {e}")
+                    print(f"⚠️  Could not check Composio sync status: {e}")
 
                 # Build a map of tool_name -> connection info (is_active, connection_id)
                 # Exclude soft-deleted connections from the active list
