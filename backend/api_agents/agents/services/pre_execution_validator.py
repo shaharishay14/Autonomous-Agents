@@ -172,6 +172,21 @@ class PreExecutionValidator:
             "generated" in str(intent.content_reference).lower()
         )
 
+        # Check if this is a CONTENT posting/sharing task (Twitter, social media, etc.)
+        # These tasks use "it"/"this" to refer to the POST CONTENT, not files
+        content_posting_keywords = [
+            "post", "tweet", "share", "publish", "write",
+            "send email", "send message", "compose"
+        ]
+        is_content_posting = any(keyword in user_message.lower() for keyword in content_posting_keywords)
+
+        # Check for explicit file indicators
+        explicit_file_keywords = [
+            "file", "document", "pdf", "spreadsheet", "attachment",
+            "drive link", "download", "upload"
+        ]
+        explicitly_mentions_file = any(keyword in user_message.lower() for keyword in explicit_file_keywords)
+
         if requires_file and has_vague_ref:
             # User said "share this" or "send the file"
             # BUT: Check if "this"/"it" refers to data/content, not a file
@@ -183,9 +198,14 @@ class PreExecutionValidator:
                 # "Create a post about our product" - asking for NEW content
                 # No file required - content will be generated
                 pass
-            elif not available_files:
-                # CRITICAL: No file available AND no data keywords AND not creating content
-                # This is likely a genuine file reference
+            elif is_content_posting and not explicitly_mentions_file:
+                # "Post it on Twitter" - "it" refers to the tweet content, not a file
+                # "Write this to Instagram" - "this" refers to the caption, not a file
+                # No blocking needed unless user explicitly says "file"
+                pass
+            elif not available_files and explicitly_mentions_file:
+                # CRITICAL: No file available AND user explicitly mentioned "file"/"document"
+                # This is a genuine file reference
                 blocking.append("File reference detected ('this'/'it') but no files available")
                 actions.append("SEARCH_FOR_FILE: Check if file needs to be downloaded from Drive/Cloud")
 
