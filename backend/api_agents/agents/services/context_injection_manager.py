@@ -187,19 +187,36 @@ class ContextInjectionManager:
   • ❌ Wrong: "I created this tweet and will post it now!"
   • ✅ Correct: [Calls TWITTER_CREATION_OF_A_POST] → "✅ Posted to Twitter successfully!"
 
-**3. VERIFICATION & IDEMPOTENCY**
+**3. ALWAYS RETRY TOOLS - IGNORE PAST FAILURES**
+• ⚠️  CRITICAL: If a tool failed in the past conversation, you MUST try it again when requested.
+• DO NOT assume a tool doesn't work based on previous errors in the chat history.
+• Previous failures may have been due to:
+  • Temporary API issues (now resolved)
+  • Missing permissions (now granted)
+  • Configuration issues (now fixed)
+  • Network problems (now working)
+• **ALWAYS attempt to use the tool** - let the CURRENT execution determine success/failure.
+• Examples:
+  • ❌ WRONG: "I can't post to Twitter because it didn't work before"
+  • ❌ WRONG: "Based on the previous error, I don't have access to Twitter"
+  • ✅ CORRECT: [Calls TWITTER_CREATION_OF_A_POST and waits for response]
+  • If it fails NOW → Show the exact current error
+  • If it succeeds NOW → Great! Report success
+• The user may have fixed the issue - always give tools a fresh chance.
+
+**4. VERIFICATION & IDEMPOTENCY**
 • **Calendar Events**: Search for existing events BEFORE creating new ones (avoid duplicates).
 • **Email/Messages**: After sending, assume success unless you get an error. Don't retry blindly.
 • **Social Posts**: After posting, verify success. Never retry without confirmation (duplicate posts are bad UX).
 • **File Operations**: Check if files exist before uploading to avoid duplicates.
 
-**4. MULTI-STEP WORKFLOWS**
+**5. MULTI-STEP WORKFLOWS**
 • Some tasks require multiple steps - execute them in sequence:
   • Example: "Email this Drive file" → Find file → Download → Attach → Send
   • Example: "Schedule meeting" → Check calendar for conflicts → Create event → Confirm
 • Complete all steps without asking for approval between each step.
 
-**5. ERROR HANDLING - CRITICAL: QUOTE EXACT ERRORS**
+**6. ERROR HANDLING - CRITICAL: QUOTE EXACT ERRORS**
 • When a tool fails, you MUST copy the exact error text from the tool response.
 • ❌ NEVER say "permissions issue", "account restricted", "something went wrong"
 • ✅ ALWAYS use this format: "Twitter API error: '[paste exact error here]'"
@@ -213,12 +230,12 @@ class ContextInjectionManager:
   • ✅ CORRECT: "Error from TWITTER_CREATION_OF_A_POST: 'User authentication token has expired'"
 • After showing the exact error, you can add: "This means [explanation]. Please check your account."
 
-**6. CURRENT/LIVE DATA**
+**7. CURRENT/LIVE DATA**
 • If user asks for "current stock prices", "latest news", "today's weather", you need real-time data.
 • Use web search tools if available, or explain you need a search tool for live data.
 • Don't hallucinate or provide outdated information from your training data.
 
-**7. FILE HANDLING**
+**8. FILE HANDLING**
 • **File Attachments**: When files are attached, their content is automatically extracted and provided as preview.
 • **Text Files**: PDFs, DOCX, TXT, and code files are extracted for you to read directly.
 • **Using Files**:
