@@ -3247,14 +3247,44 @@ RESPONSE FORMAT:
                     status_str = str(conn_status).upper()
                     if status_str not in ['ACTIVE', 'ENABLED']:
                         # Delete old INITIATED connections (ghost connections from incomplete OAuth)
+                        # BUT: Only delete if INITIATED for more than 5 minutes (give users time to complete OAuth)
                         if status_str == 'INITIATED':
                             try:
                                 connection_id = None
                                 if hasattr(conn, 'id'): connection_id = conn.id
                                 elif hasattr(conn, 'connectionId'): connection_id = conn.connectionId
 
-                                if connection_id:
-                                    print(f"🗑️  Cleaning up INITIATED connection: {tool_name_debug} (ID: {connection_id})")
+                                # Check connection age before deleting
+                                should_delete = False
+                                if hasattr(conn, 'createdAt') or hasattr(conn, 'created_at'):
+                                    created_time = getattr(conn, 'createdAt', None) or getattr(conn, 'created_at', None)
+                                    if created_time:
+                                        from datetime import datetime, timezone as dt_timezone
+                                        try:
+                                            # Parse creation time
+                                            if isinstance(created_time, str):
+                                                created_dt = datetime.fromisoformat(created_time.replace('Z', '+00:00'))
+                                            else:
+                                                created_dt = created_time
+
+                                            # Only delete if older than 5 minutes
+                                            age_minutes = (datetime.now(dt_timezone.utc) - created_dt).total_seconds() / 60
+                                            if age_minutes > 5:
+                                                should_delete = True
+                                                print(f"⏰ INITIATED connection is {age_minutes:.1f} minutes old - will delete")
+                                            else:
+                                                print(f"⏰ INITIATED connection is {age_minutes:.1f} minutes old - keeping (user may still be completing OAuth)")
+                                        except Exception as time_err:
+                                            print(f"⚠️  Couldn't parse creation time: {time_err}")
+                                            # If we can't parse time, don't delete (safer to keep than delete)
+                                            should_delete = False
+                                else:
+                                    # No creation time - delete to be safe
+                                    should_delete = True
+                                    print(f"⚠️  No creation time found for INITIATED connection - will delete")
+
+                                if should_delete and connection_id:
+                                    print(f"🗑️  Cleaning up stale INITIATED connection: {tool_name_debug} (ID: {connection_id})")
                                     self.composio_client.connected_accounts.delete(connection_id)
                                     print(f"✅ Deleted ghost connection: {tool_name_debug}")
                             except Exception as delete_error:

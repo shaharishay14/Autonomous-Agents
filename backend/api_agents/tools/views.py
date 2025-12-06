@@ -484,16 +484,30 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                         if hasattr(conn, 'id'): conn_id = conn.id
                         elif hasattr(conn, 'connectionId'): conn_id = conn.connectionId
 
-                        # If this connection is NOT in our active database, delete it from Composio
+                        # If this connection is NOT in our active database, check if it should be deleted
+                        # SAFETY: Only delete if status is INITIATED (incomplete OAuth), not ACTIVE/ENABLED
                         if tool_name != "Unknown" and tool_name not in db_active_connections:
-                            try:
-                                if conn_id:
-                                    print(f"🗑️  Deleting dangling Composio connection: {tool_name} (ID: {conn_id})")
-                                    agent_service.composio_client.connected_accounts.delete(conn_id)
-                                    dangling_deleted += 1
-                                    print(f"✅ Deleted dangling connection: {tool_name}")
-                            except Exception as e:
-                                print(f"❌ Failed to delete dangling connection {tool_name}: {e}")
+                            # Check connection status before deleting
+                            conn_status = None
+                            if hasattr(conn, 'status'): conn_status = conn.status
+                            elif hasattr(conn, 'connectionStatus'): conn_status = conn.connectionStatus
+                            elif hasattr(conn, 'connection_status'): conn_status = conn.connection_status
+
+                            status_str = str(conn_status).upper() if conn_status else "UNKNOWN"
+
+                            # SAFETY: Only delete INITIATED connections (incomplete OAuth)
+                            # NEVER delete ACTIVE or ENABLED connections - they may just not be synced to DB yet
+                            if status_str == 'INITIATED':
+                                try:
+                                    if conn_id:
+                                        print(f"🗑️  Deleting dangling INITIATED connection: {tool_name} (ID: {conn_id})")
+                                        agent_service.composio_client.connected_accounts.delete(conn_id)
+                                        dangling_deleted += 1
+                                        print(f"✅ Deleted dangling connection: {tool_name}")
+                                except Exception as e:
+                                    print(f"❌ Failed to delete dangling connection {tool_name}: {e}")
+                            else:
+                                print(f"⚠️  Found connection {tool_name} (status: {status_str}) not in DB - keeping (may need sync)")
 
                     if dangling_deleted > 0:
                         print(f"🗑️  Cleaned up {dangling_deleted} dangling Composio connection(s)")
