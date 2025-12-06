@@ -124,6 +124,73 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                 redirect_url=redirect_url
             )
 
+            # CAUTION FEATURE: Handle "Multiple connected accounts" error
+            # This occurs when a connection exists in Composio but was deleted from DB
+            # causing a ghost connection that blocks new connections
+            if not result.get('success') and 'Multiple connected accounts' in str(result.get('error', '')):
+                print(f"⚠️  Multiple connections error detected - attempting ghost connection cleanup")
+
+                try:
+                    entity_id = f"user_{request.user.id}"
+
+                    # Search for and delete ghost connections for this user + tool
+                    print(f"🔍 Searching Composio for ghost {tool_name} connections for {entity_id}...")
+
+                    # Get all connections from Composio
+                    response = agent_service.composio_client.connected_accounts.list()
+                    all_connections = response.items if hasattr(response, 'items') else list(response)
+
+                    deleted_count = 0
+                    for conn in all_connections:
+                        # Get entity/user_id
+                        conn_entity = getattr(conn, 'user_id', None) or getattr(conn, 'entityId', None) or getattr(conn, 'entity_id', None)
+
+                        # Match this user
+                        if conn_entity == entity_id:
+                            # Get tool name
+                            conn_app = None
+                            if hasattr(conn, 'toolkit') and conn.toolkit:
+                                conn_app = getattr(conn.toolkit, 'slug', None)
+
+                            # Match this tool
+                            if conn_app and conn_app.upper() == tool_name:
+                                conn_id = getattr(conn, 'id', None)
+
+                                # Check if this connection is in our database
+                                db_conn = ComposioConnection.objects.filter(
+                                    composio_connection_id=conn_id
+                                ).first()
+
+                                if not db_conn:
+                                    # Ghost connection - not in database, delete it!
+                                    print(f"🗑️  Found ghost connection {conn_id} for {tool_name} - deleting...")
+                                    agent_service.composio_client.connected_accounts.delete(connection_id=conn_id)
+                                    deleted_count += 1
+                                    print(f"✅ Deleted ghost connection {conn_id}")
+
+                    if deleted_count > 0:
+                        print(f"🧹 Deleted {deleted_count} ghost connection(s), retrying authentication...")
+
+                        # Retry authentication after cleanup
+                        result = agent_service.authenticate_tool(
+                            tool_name,
+                            additional_fields if additional_fields else None,
+                            redirect_url=redirect_url
+                        )
+
+                        if result.get('success'):
+                            print(f"✅ Retry successful after ghost connection cleanup")
+                        else:
+                            print(f"❌ Retry failed after cleanup: {result.get('error')}")
+                    else:
+                        print(f"⚠️  No ghost connections found to delete")
+
+                except Exception as cleanup_err:
+                    print(f"❌ Failed to cleanup ghost connections: {cleanup_err}")
+                    import traceback
+                    traceback.print_exc()
+                    # Continue with original error
+
             if result.get('success'):
                 metadata = {}
                 if additional_fields:
