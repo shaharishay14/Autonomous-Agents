@@ -1672,25 +1672,30 @@ class AgentViewSet(viewsets.ModelViewSet):
                     )
 
                 # ===== CLEANUP TEMPORARY DISK FILES FOR COMPOSIO =====
-                # Delete the files we wrote to disk for Composio (but keep database records)
-                if temp_file_paths:
-                    import shutil
-                    for file_path in temp_file_paths:
-                        try:
-                            if os.path.exists(file_path):
-                                os.remove(file_path)
-                        except Exception as e:
-                            print(f"⚠️ Failed to delete temp file {file_path}: {e}")
-
-                    # Clean up the temp directory
-                    try:
-                        if file_attachments_for_composio:
-                            temp_dir = os.path.dirname(temp_file_paths[0])
-                            if os.path.exists(temp_dir):
-                                shutil.rmtree(temp_dir)
-                                print(f"🗑️ Cleaned up temporary disk directory: {temp_dir}")
-                    except Exception as e:
-                        print(f"⚠️ Failed to delete temp directory: {e}")
+                # IMPORTANT: Temp files are NOT deleted immediately after execution
+                # Composio may need these files for asynchronous operations (e.g., media uploads)
+                # The temp directory cleanup is disabled to allow Composio tools to complete
+                # Temp files will be cleaned up by the system's temp file cleaner
+                #
+                # if temp_file_paths:
+                #     import shutil
+                #     for file_path in temp_file_paths:
+                #         try:
+                #             if os.path.exists(file_path):
+                #                 os.remove(file_path)
+                #         except Exception as e:
+                #             print(f"⚠️ Failed to delete temp file {file_path}: {e}")
+                #
+                #     # Clean up the temp directory
+                #     try:
+                #         if file_attachments_for_composio:
+                #             temp_dir = os.path.dirname(temp_file_paths[0])
+                #             if os.path.exists(temp_dir):
+                #                 shutil.rmtree(temp_dir)
+                #                 print(f"🗑️ Cleaned up temporary disk directory: {temp_dir}")
+                #     except Exception as e:
+                #         print(f"⚠️ Failed to delete temp directory: {e}")
+                print(f"📁 Temp files preserved for Composio async operations (will be cleaned by system)")
                 # =====================================================
 
                 # ===== CLEANUP TEMPORARY DATABASE FILES =====
@@ -1714,23 +1719,25 @@ class AgentViewSet(viewsets.ModelViewSet):
                 traceback.print_exc()
 
                 # Cleanup temporary disk files even on error
-                if temp_file_paths:
-                    import shutil
-                    for file_path in temp_file_paths:
-                        try:
-                            if os.path.exists(file_path):
-                                os.remove(file_path)
-                        except Exception as cleanup_error:
-                            print(f"⚠️ Failed to delete temp file {file_path}: {cleanup_error}")
-
-                    # Clean up the temp directory
-                    try:
-                        if file_attachments_for_composio:
-                            temp_dir = os.path.dirname(temp_file_paths[0])
-                            if os.path.exists(temp_dir):
-                                shutil.rmtree(temp_dir)
-                    except Exception as cleanup_error:
-                        print(f"⚠️ Failed to delete temp directory: {cleanup_error}")
+                # DISABLED: See note above about preserving temp files for Composio
+                # if temp_file_paths:
+                #     import shutil
+                #     for file_path in temp_file_paths:
+                #         try:
+                #             if os.path.exists(file_path):
+                #                 os.remove(file_path)
+                #         except Exception as cleanup_error:
+                #             print(f"⚠️ Failed to delete temp file {file_path}: {cleanup_error}")
+                #
+                #     # Clean up the temp directory
+                #     try:
+                #         if file_attachments_for_composio:
+                #             temp_dir = os.path.dirname(temp_file_paths[0])
+                #             if os.path.exists(temp_dir):
+                #                 shutil.rmtree(temp_dir)
+                #     except Exception as cleanup_error:
+                #         print(f"⚠️ Failed to delete temp directory: {cleanup_error}")
+                print(f"📁 Temp files preserved even on error (will be cleaned by system)")
 
                 # Cleanup temporary database files even on error
                 if file_ids:
