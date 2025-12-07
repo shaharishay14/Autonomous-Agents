@@ -1662,7 +1662,8 @@ RESPONSE FORMAT:
             # STRUCTURED FILE HANDLING: If files are attached, pass them as structured content
             if file_attachments:
                 # Build structured content with text + file references
-                content_parts = [{"type": "text", "text": safe_user_message}]
+                # NOTE: Using 'input_text' for OpenAI Responses API (not 'text')
+                content_parts = [{"type": "input_text", "text": safe_user_message}]
 
                 # Add each file as a structured reference with explicit instructions
                 for file_info in file_attachments:
@@ -1676,7 +1677,7 @@ RESPONSE FORMAT:
                     file_instruction += f"⚠️ **CRITICAL:** When calling tools that require a `file` parameter (like TWITTER_UPLOAD_MEDIA), "
                     file_instruction += f"pass this path EXACTLY as shown above. Do not modify it.\n"
 
-                    content_parts.append({"type": "text", "text": file_instruction})
+                    content_parts.append({"type": "input_text", "text": file_instruction})
 
                 user_message_content = content_parts
             else:
