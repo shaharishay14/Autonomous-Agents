@@ -28,6 +28,7 @@ from .model_selection_strategy import get_model_selection_strategy
 from .intent_resolution_engine import get_intent_engine
 from .pre_execution_validator import get_validator
 from .execution_logger import get_execution_logger
+from ...shared.utils import convert_image_to_base64
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -1661,23 +1662,92 @@ RESPONSE FORMAT:
             # Add the current user message (with file paths if any) to chat history
             # STRUCTURED FILE HANDLING: If files are attached, pass them as structured content
             if file_attachments:
+                print(f"\n{'='*60}")
+                print(f"📎 FILE ATTACHMENT PROCESSING - {len(file_attachments)} file(s) detected")
+                print(f"{'='*60}")
+
                 # Build structured content with text + file references
                 # NOTE: Using 'input_text' for OpenAI Responses API (not 'text')
                 content_parts = [{"type": "input_text", "text": safe_user_message}]
 
-                # Add each file as a structured reference with explicit instructions
-                for file_info in file_attachments:
+                # Add each file as a structured reference
+                for idx, file_info in enumerate(file_attachments, 1):
                     safe_filename = sanitize_for_prompt(file_info.get('filename', 'unknown'))
                     safe_path = sanitize_file_path(file_info.get('file_path', ''))
+                    mime_type = file_info.get('mime_type', 'application/octet-stream')
+                    file_size = file_info.get('size', 0)
 
-                    # Add file instruction as text for the LLM to understand
-                    file_instruction = f"\n\n📎 **File Available: {safe_filename}**\n"
-                    file_instruction += f"🔧 **For tool calls:** Use this exact file path:\n"
-                    file_instruction += f"```\n{safe_path}\n```\n"
-                    file_instruction += f"⚠️ **CRITICAL:** When calling tools that require a `file` parameter (like TWITTER_UPLOAD_MEDIA), "
-                    file_instruction += f"pass this path EXACTLY as shown above. Do not modify it.\n"
+                    print(f"\n📄 File #{idx}: {safe_filename}")
+                    print(f"   ├─ MIME Type: {mime_type}")
+                    print(f"   ├─ Size: {file_size:,} bytes")
+                    print(f"   └─ Path: {safe_path}")
 
-                    content_parts.append({"type": "input_text", "text": file_instruction})
+                    # Handle images with vision support
+                    if mime_type and mime_type.startswith('image/'):
+                        try:
+                            print(f"   🖼️  Detected image - converting to base64 for vision...")
+
+                            # Get FileAttachment object from database to convert to base64
+                            from api_agents.files.models import FileAttachment
+                            file_id = file_info.get('id')
+
+                            if file_id:
+                                # Load file from database
+                                file_obj = await sync_to_async(FileAttachment.objects.get)(id=file_id)
+                                image_url = convert_image_to_base64(file_obj)
+
+                                if image_url:
+                                    # Pass image as vision content
+                                    content_parts.append({
+                                        "type": "image_url",
+                                        "image_url": {"url": image_url}
+                                    })
+                                    print(f"   ✅ Image added as vision content (base64 data URI)")
+
+                                    # Also add file path as structured metadata for tool calls
+                                    file_metadata = f"\n\n📎 **Image File: {safe_filename}**\n"
+                                    file_metadata += f"🔧 **For tool calls (like TWITTER_UPLOAD_MEDIA):** Use this exact file path:\n"
+                                    file_metadata += f"```\n{safe_path}\n```\n"
+                                    content_parts.append({"type": "input_text", "text": file_metadata})
+                                    print(f"   ✅ File path metadata added for tool calls")
+                                else:
+                                    print(f"   ⚠️  Could not convert image to base64, falling back to path-only")
+                                    raise ValueError("Image conversion failed")
+                            else:
+                                print(f"   ⚠️  No file ID available, falling back to path-only")
+                                raise ValueError("No file ID")
+
+                        except Exception as e:
+                            print(f"   ❌ Error processing image: {e}")
+                            print(f"   📝 Falling back to text-based file reference")
+                            # Fallback to text-based reference
+                            file_instruction = f"\n\n📎 **File Available: {safe_filename}**\n"
+                            file_instruction += f"🔧 **For tool calls:** Use this exact file path:\n"
+                            file_instruction += f"```\n{safe_path}\n```\n"
+                            content_parts.append({"type": "input_text", "text": file_instruction})
+                    else:
+                        # Non-image files: pass as structured metadata
+                        print(f"   📝 Non-image file - adding as structured metadata")
+                        file_metadata = f"\n\n📎 **File Available: {safe_filename}**\n"
+                        file_metadata += f"📊 **File Info:**\n"
+                        file_metadata += f"   • Type: {mime_type}\n"
+                        file_metadata += f"   • Size: {file_size:,} bytes\n"
+                        file_metadata += f"\n🔧 **For tool calls:** Use this exact file path:\n"
+                        file_metadata += f"```\n{safe_path}\n```\n"
+
+                        # Add extracted text if available
+                        extracted_text = file_info.get('extracted_text', '')
+                        if extracted_text:
+                            preview = extracted_text[:200] + "..." if len(extracted_text) > 200 else extracted_text
+                            file_metadata += f"\n📄 **Content Preview:**\n{preview}\n"
+                            print(f"   ✅ Extracted text included ({len(extracted_text):,} chars)")
+
+                        content_parts.append({"type": "input_text", "text": file_metadata})
+                        print(f"   ✅ File metadata added as structured content")
+
+                print(f"\n{'='*60}")
+                print(f"✅ FILE PROCESSING COMPLETE - {len(content_parts)} content parts total")
+                print(f"{'='*60}\n")
 
                 user_message_content = content_parts
             else:

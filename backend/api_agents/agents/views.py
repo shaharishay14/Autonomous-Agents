@@ -1246,10 +1246,24 @@ class AgentViewSet(viewsets.ModelViewSet):
         # ===== PROCESS INLINE FILE UPLOADS =====
         # Handle inline file uploads - save as temporary files
         temp_file_ids = []
-        for file_obj in inline_files:
+
+        if inline_files:
+            print(f"\n{'='*60}")
+            print(f"📤 INLINE FILE UPLOAD - Processing {len(inline_files)} file(s)")
+            print(f"{'='*60}")
+
+        for idx, file_obj in enumerate(inline_files, 1):
             try:
+                print(f"\n📁 File #{idx}: {file_obj.name}")
+                print(f"   ├─ MIME Type: {file_obj.content_type or 'application/octet-stream'}")
+                print(f"   ├─ Size: {file_obj.size:,} bytes")
+                print(f"   └─ Status: Reading file content...")
+
                 # Read and save inline file with is_temporary=True
                 file_content = file_obj.read()
+                print(f"   ✅ File content read ({len(file_content):,} bytes)")
+
+                print(f"   📝 Creating FileAttachment in database...")
                 attachment = FileAttachment.objects.create(
                     user=request.user,
                     agent=agent,
@@ -1259,8 +1273,10 @@ class AgentViewSet(viewsets.ModelViewSet):
                     mime_type=file_obj.content_type or 'application/octet-stream',
                     is_temporary=True  # 👈 Automatically mark as temporary
                 )
+                print(f"   ✅ FileAttachment created (ID: {attachment.id})")
 
                 # Extract text content from file
+                print(f"   🔍 Extracting text content...")
                 from api_agents.files.content_extractor import get_content_extractor
                 extractor = get_content_extractor()
                 extracted_text, extraction_status = extractor.extract(
@@ -1271,12 +1287,22 @@ class AgentViewSet(viewsets.ModelViewSet):
                 attachment.extracted_text = extracted_text
                 attachment.extraction_status = extraction_status
                 attachment.save()
+                print(f"   ✅ Text extraction complete: {extraction_status}")
+                if extracted_text:
+                    print(f"   📄 Extracted {len(extracted_text):,} characters")
 
                 temp_file_ids.append(attachment.id)
-                print(f"📎 Inline file uploaded as temporary: {file_obj.name} (ID={attachment.id}, Extraction: {extraction_status})")
+                print(f"   ✅ File successfully uploaded (ID: {attachment.id})")
             except Exception as e:
-                print(f"❌ Error uploading inline file {file_obj.name}: {e}")
+                print(f"   ❌ ERROR uploading file {file_obj.name}: {e}")
+                import traceback
+                print(f"   Traceback: {traceback.format_exc()}")
                 # Continue with other files
+
+        if inline_files:
+            print(f"\n{'='*60}")
+            print(f"✅ INLINE UPLOAD COMPLETE - {len(temp_file_ids)}/{len(inline_files)} files uploaded")
+            print(f"{'='*60}\n")
 
         # Combine all file IDs: persistent files (from DB) + inline uploads + URL-fetched files
         file_ids = persistent_file_ids + temp_file_ids + url_fetched_file_ids
@@ -1493,6 +1519,7 @@ class AgentViewSet(viewsets.ModelViewSet):
 
                                 # Add to file_attachments list for Composio
                                 file_attachments_for_composio.append({
+                                    'id': str(file_obj.id),  # ✅ Include file ID for structured content processing
                                     'filename': file_obj.original_filename,
                                     'file_path': file_path,
                                     'size': file_obj.file_size,
@@ -1500,7 +1527,7 @@ class AgentViewSet(viewsets.ModelViewSet):
                                     'extracted_text': file_obj.extracted_text,
                                     'extraction_status': file_obj.extraction_status
                                 })
-                                print(f"📄 Wrote file to disk: {file_path}")
+                                print(f"📄 Wrote file to disk: {file_path} (ID: {file_obj.id})")
                         except Exception as e:
                             print(f"❌ Error writing file {file_id} to disk: {e}")
                 # ==========================================
