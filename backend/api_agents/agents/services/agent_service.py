@@ -1697,14 +1697,12 @@ RESPONSE FORMAT:
                                 image_url = convert_image_to_base64(file_obj)
 
                                 if image_url:
-                                    # Pass image as vision content (Hybrid format for Composio Runner)
+                                    # Pass image as vision content (Composio Runner simplified format)
                                     # Type: 'input_image' (Composio requirement)
-                                    # Content: 'image_url' (OpenAI requirement, not 'source')
+                                    # Content: 'image_url' as direct string (Composio simplified schema)
                                     content_parts.append({
                                         "type": "input_image",
-                                        "image_url": {
-                                            "url": image_url
-                                        }
+                                        "image_url": image_url  # Direct string, not wrapped in {"url": ...}
                                     })
                                     print(f"   ✅ Image added as vision content (base64 data URI)")
 
