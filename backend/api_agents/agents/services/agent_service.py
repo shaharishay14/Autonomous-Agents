@@ -1667,8 +1667,8 @@ RESPONSE FORMAT:
                 print(f"{'='*60}")
 
                 # Build structured content with text + file references
-                # NOTE: Using 'text' for OpenAI Chat Completions API
-                content_parts = [{"type": "text", "text": safe_user_message}]
+                # NOTE: Composio Runner requires 'input_text' type (not 'text')
+                content_parts = [{"type": "input_text", "text": safe_user_message}]
 
                 # Add each file as a structured reference
                 for idx, file_info in enumerate(file_attachments, 1):
@@ -1697,9 +1697,11 @@ RESPONSE FORMAT:
                                 image_url = convert_image_to_base64(file_obj)
 
                                 if image_url:
-                                    # Pass image as vision content (using OpenAI Chat Completions format)
+                                    # Pass image as vision content (Hybrid format for Composio Runner)
+                                    # Type: 'input_image' (Composio requirement)
+                                    # Content: 'image_url' (OpenAI requirement, not 'source')
                                     content_parts.append({
-                                        "type": "image_url",
+                                        "type": "input_image",
                                         "image_url": {
                                             "url": image_url
                                         }
@@ -1710,7 +1712,7 @@ RESPONSE FORMAT:
                                     file_metadata = f"\n\n📎 **Image File: {safe_filename}**\n"
                                     file_metadata += f"🔧 **For tool calls (like TWITTER_UPLOAD_MEDIA):** Use this exact file path:\n"
                                     file_metadata += f"```\n{safe_path}\n```\n"
-                                    content_parts.append({"type": "text", "text": file_metadata})
+                                    content_parts.append({"type": "input_text", "text": file_metadata})
                                     print(f"   ✅ File path metadata added for tool calls")
                                 else:
                                     print(f"   ⚠️  Could not convert image to base64, falling back to path-only")
@@ -1726,7 +1728,7 @@ RESPONSE FORMAT:
                             file_instruction = f"\n\n📎 **File Available: {safe_filename}**\n"
                             file_instruction += f"🔧 **For tool calls:** Use this exact file path:\n"
                             file_instruction += f"```\n{safe_path}\n```\n"
-                            content_parts.append({"type": "text", "text": file_instruction})
+                            content_parts.append({"type": "input_text", "text": file_instruction})
                     else:
                         # Non-image files: pass as structured metadata
                         print(f"   📝 Non-image file - adding as structured metadata")
@@ -1744,7 +1746,7 @@ RESPONSE FORMAT:
                             file_metadata += f"\n📄 **Content Preview:**\n{preview}\n"
                             print(f"   ✅ Extracted text included ({len(extracted_text):,} chars)")
 
-                        content_parts.append({"type": "text", "text": file_metadata})
+                        content_parts.append({"type": "input_text", "text": file_metadata})
                         print(f"   ✅ File metadata added as structured content")
 
                 print(f"\n{'='*60}")
