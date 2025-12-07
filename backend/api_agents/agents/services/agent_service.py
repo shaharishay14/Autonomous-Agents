@@ -1705,17 +1705,26 @@ RESPONSE FORMAT:
 
                                     # Also add file path as structured metadata for tool calls
                                     print(f"   🔍 DEBUG: Passing file path to agent: {safe_path}")
+                                    file_size_mb = file_size / (1024 * 1024)
+
                                     file_metadata = f"\n\n📎 **Image File: {safe_filename}**\n"
+                                    file_metadata += f"📊 **Size: {file_size:,} bytes ({file_size_mb:.2f} MB)**\n"
                                     file_metadata += f"🔧 **For tool calls:** Use this exact file path:\n"
                                     file_metadata += f"```\n{safe_path}\n```\n\n"
                                     file_metadata += f"⚠️ **IMPORTANT TWITTER/X RULES:**\n"
                                     file_metadata += f"1. You CANNOT post images directly with TWITTER_CREATION_OF_A_POST.\n"
                                     file_metadata += f"2. You MUST follow this 2-step sequence:\n"
-                                    file_metadata += f"   - Step A: Call TWITTER_UPLOAD_MEDIA with the file_path above\n"
+
+                                    # Choose the right upload tool based on file size
+                                    if file_size > 5 * 1024 * 1024:  # > 5MB
+                                        file_metadata += f"   - Step A: This file is {file_size_mb:.2f} MB (>5MB), so use TWITTER_UPLOAD_LARGE_MEDIA with the file_path above\n"
+                                    else:
+                                        file_metadata += f"   - Step A: This file is {file_size_mb:.2f} MB (≤5MB), so use TWITTER_UPLOAD_MEDIA with the file_path above\n"
+
                                     file_metadata += f"   - Step B: Extract the 'media_id' from the upload response\n"
                                     file_metadata += f"   - Step C: Call TWITTER_CREATION_OF_A_POST and pass the media_id in the 'media_ids' parameter\n"
                                     content_parts.append({"type": "input_text", "text": file_metadata})
-                                    print(f"   ✅ File path metadata added for tool calls")
+                                    print(f"   ✅ File path metadata added for tool calls ({file_size_mb:.2f} MB)")
                                 else:
                                     print(f"   ⚠️  Could not convert image to base64, falling back to path-only")
                                     raise ValueError("Image conversion failed")
