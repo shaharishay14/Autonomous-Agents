@@ -1698,11 +1698,24 @@ RESPONSE FORMAT:
 
                                 if image_url:
                                     # Pass image as vision content (using Responses API format)
-                                    content_parts.append({
-                                        "type": "input_image",
-                                        "input_image": image_url
-                                    })
-                                    print(f"   ✅ Image added as vision content (base64 data URI)")
+                                    # Parse data URI: "data:image/png;base64,<data>"
+                                    import re
+                                    match = re.match(r'data:([^;]+);base64,(.+)', image_url)
+                                    if match:
+                                        media_type = match.group(1)
+                                        base64_data = match.group(2)
+                                        content_parts.append({
+                                            "type": "input_image",
+                                            "source": {
+                                                "type": "base64",
+                                                "media_type": media_type,
+                                                "data": base64_data
+                                            }
+                                        })
+                                        print(f"   ✅ Image added as vision content (base64 data URI)")
+                                    else:
+                                        print(f"   ⚠️  Invalid data URI format: {image_url[:100]}")
+                                        raise ValueError("Invalid data URI format")
 
                                     # Also add file path as structured metadata for tool calls
                                     file_metadata = f"\n\n📎 **Image File: {safe_filename}**\n"
