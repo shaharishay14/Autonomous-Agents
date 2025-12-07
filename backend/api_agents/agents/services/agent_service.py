@@ -1667,8 +1667,8 @@ RESPONSE FORMAT:
                 print(f"{'='*60}")
 
                 # Build structured content with text + file references
-                # NOTE: Using 'input_text' for OpenAI Responses API (not 'text')
-                content_parts = [{"type": "input_text", "text": safe_user_message}]
+                # NOTE: Using 'text' for OpenAI Chat Completions API
+                content_parts = [{"type": "text", "text": safe_user_message}]
 
                 # Add each file as a structured reference
                 for idx, file_info in enumerate(file_attachments, 1):
@@ -1697,31 +1697,20 @@ RESPONSE FORMAT:
                                 image_url = convert_image_to_base64(file_obj)
 
                                 if image_url:
-                                    # Pass image as vision content (using Responses API format)
-                                    # Parse data URI: "data:image/png;base64,<data>"
-                                    import re
-                                    match = re.match(r'data:([^;]+);base64,(.+)', image_url)
-                                    if match:
-                                        media_type = match.group(1)
-                                        base64_data = match.group(2)
-                                        content_parts.append({
-                                            "type": "input_image",
-                                            "source": {
-                                                "type": "base64",
-                                                "media_type": media_type,
-                                                "data": base64_data
-                                            }
-                                        })
-                                        print(f"   ✅ Image added as vision content (base64 data URI)")
-                                    else:
-                                        print(f"   ⚠️  Invalid data URI format: {image_url[:100]}")
-                                        raise ValueError("Invalid data URI format")
+                                    # Pass image as vision content (using OpenAI Chat Completions format)
+                                    content_parts.append({
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": image_url
+                                        }
+                                    })
+                                    print(f"   ✅ Image added as vision content (base64 data URI)")
 
                                     # Also add file path as structured metadata for tool calls
                                     file_metadata = f"\n\n📎 **Image File: {safe_filename}**\n"
                                     file_metadata += f"🔧 **For tool calls (like TWITTER_UPLOAD_MEDIA):** Use this exact file path:\n"
                                     file_metadata += f"```\n{safe_path}\n```\n"
-                                    content_parts.append({"type": "input_text", "text": file_metadata})
+                                    content_parts.append({"type": "text", "text": file_metadata})
                                     print(f"   ✅ File path metadata added for tool calls")
                                 else:
                                     print(f"   ⚠️  Could not convert image to base64, falling back to path-only")
@@ -1737,7 +1726,7 @@ RESPONSE FORMAT:
                             file_instruction = f"\n\n📎 **File Available: {safe_filename}**\n"
                             file_instruction += f"🔧 **For tool calls:** Use this exact file path:\n"
                             file_instruction += f"```\n{safe_path}\n```\n"
-                            content_parts.append({"type": "input_text", "text": file_instruction})
+                            content_parts.append({"type": "text", "text": file_instruction})
                     else:
                         # Non-image files: pass as structured metadata
                         print(f"   📝 Non-image file - adding as structured metadata")
@@ -1755,7 +1744,7 @@ RESPONSE FORMAT:
                             file_metadata += f"\n📄 **Content Preview:**\n{preview}\n"
                             print(f"   ✅ Extracted text included ({len(extracted_text):,} chars)")
 
-                        content_parts.append({"type": "input_text", "text": file_metadata})
+                        content_parts.append({"type": "text", "text": file_metadata})
                         print(f"   ✅ File metadata added as structured content")
 
                 print(f"\n{'='*60}")
