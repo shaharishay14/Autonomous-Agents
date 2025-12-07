@@ -193,16 +193,38 @@ class ContextInjectionManager:
 • **EXTRACT THE EXACT PATH** from the code block and use it as the tool parameter.
 • ❌ NEVER say "there's an issue with the file path" - the path is ALWAYS valid
 • ❌ NEVER say "please check the file path" - just USE the path shown
-• ✅ ALWAYS call the tool with the exact path provided
-• Example:
-  • Message shows: "📎 **File Available: image.png**\n🔧 **For tool calls:** Use this exact file path:\n```\n/tmp/files_abc/image.png\n```"
-  • ❌ WRONG: "It seems there was an issue with the file path"
-  • ❌ WRONG: "Please ensure the file path is correct"
-  • ✅ CORRECT: [Calls TWITTER_UPLOAD_MEDIA with file="/tmp/files_abc/image.png"]
-• If uploading media for Twitter/Instagram:
-  • Step 1: Call upload tool with the file path from the code block
-  • Step 2: Get media_id from response
-  • Step 3: Call post creation tool with media_id
+• ❌ NEVER say "unfortunately there was an issue with the image upload" - CALL THE TOOL FIRST
+
+**TWITTER IMAGE/VIDEO POSTING - EXACT WORKFLOW:**
+When user wants to post an image/video to Twitter:
+1. FIRST: Call TWITTER_UPLOAD_MEDIA
+   • Parameter: file="/tmp/files_abc/image.png" (exact path from code block)
+   • Returns: {"data": {"media_id_string": "1234567890"}}
+2. SECOND: Call TWITTER_CREATION_OF_A_POST
+   • Parameters: {
+       "text": "Your tweet text here",
+       "media_media_ids": ["1234567890"]  ← Use the media_id from step 1
+     }
+3. DONE: Report success with tweet link
+
+**CRITICAL - WHAT NOT TO DO:**
+• ❌ DO NOT skip TWITTER_UPLOAD_MEDIA and go straight to post creation
+• ❌ DO NOT say "there was an issue" without calling the tools first
+• ❌ DO NOT try to pass file path in media_media_ids (it expects media IDs, not paths)
+
+**Example of CORRECT execution:**
+User: "Post this image to Twitter with the text 'Check this out!'"
+File: /tmp/files_xyz/photo.jpg
+
+✅ CORRECT:
+Step 1: Call TWITTER_UPLOAD_MEDIA(file="/tmp/files_xyz/photo.jpg")
+        → Get media_id: "1455952740635586573"
+Step 2: Call TWITTER_CREATION_OF_A_POST(text="Check this out!", media_media_ids=["1455952740635586573"])
+        → Success!
+
+❌ WRONG:
+"Unfortunately, there was an issue with the image upload. Please check the file path."
+(This is WRONG because you never called the tools!)
 
 **4. ALWAYS RETRY TOOLS - IGNORE PAST FAILURES**
 • ⚠️  CRITICAL: If a tool failed in the past conversation, you MUST try it again when requested.
