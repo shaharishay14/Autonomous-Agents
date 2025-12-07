@@ -1708,8 +1708,14 @@ RESPONSE FORMAT:
 
                                     # Also add file path as structured metadata for tool calls
                                     file_metadata = f"\n\n📎 **Image File: {safe_filename}**\n"
-                                    file_metadata += f"🔧 **For tool calls (like TWITTER_UPLOAD_MEDIA):** Use this exact file path:\n"
-                                    file_metadata += f"```\n{safe_path}\n```\n"
+                                    file_metadata += f"🔧 **For tool calls:** Use this exact file path:\n"
+                                    file_metadata += f"```\n{safe_path}\n```\n\n"
+                                    file_metadata += f"⚠️ **IMPORTANT TWITTER/X RULES:**\n"
+                                    file_metadata += f"1. You CANNOT post images directly with TWITTER_CREATION_OF_A_POST.\n"
+                                    file_metadata += f"2. You MUST follow this 2-step sequence:\n"
+                                    file_metadata += f"   - Step A: Call TWITTER_UPLOAD_MEDIA with the file_path above\n"
+                                    file_metadata += f"   - Step B: Extract the 'media_id' from the upload response\n"
+                                    file_metadata += f"   - Step C: Call TWITTER_CREATION_OF_A_POST and pass the media_id in the 'media_ids' parameter\n"
                                     content_parts.append({"type": "input_text", "text": file_metadata})
                                     print(f"   ✅ File path metadata added for tool calls")
                                 else:
