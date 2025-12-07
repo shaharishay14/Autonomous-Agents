@@ -1372,7 +1372,7 @@ class AgentViewSet(viewsets.ModelViewSet):
                         # Re-build the file context for *all* messages in history
                         # Support vision for images, text metadata for non-images
                         if msg.attachments and isinstance(msg.attachments, list):
-                            content_parts = [{"type": "text", "text": msg_content}]
+                            content_parts = [{"type": "input_text", "text": msg_content}]
                             non_image_files = []
 
                             for att in msg.attachments:
@@ -1388,9 +1388,12 @@ class AgentViewSet(viewsets.ModelViewSet):
                                             image_url = convert_image_to_base64(file_obj)
 
                                             if image_url:
+                                                # Use Composio hybrid format
+                                                # Type: 'input_image' (Composio requirement)
+                                                # Content: 'image_url' as direct string (not wrapped in {"url": ...})
                                                 content_parts.append({
-                                                    "type": "image_url",
-                                                    "image_url": {"url": image_url}
+                                                    "type": "input_image",
+                                                    "image_url": image_url
                                                 })
                                                 print(f"📷 Added image to vision: {att.get('filename', 'image')}")
                                             else:
