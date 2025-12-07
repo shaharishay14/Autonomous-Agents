@@ -1697,10 +1697,10 @@ RESPONSE FORMAT:
                                 image_url = convert_image_to_base64(file_obj)
 
                                 if image_url:
-                                    # Pass image as vision content
+                                    # Pass image as vision content (using Responses API format)
                                     content_parts.append({
-                                        "type": "image_url",
-                                        "image_url": {"url": image_url}
+                                        "type": "input_image",
+                                        "input_image": image_url
                                     })
                                     print(f"   ✅ Image added as vision content (base64 data URI)")
 
