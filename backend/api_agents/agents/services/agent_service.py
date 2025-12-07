@@ -1640,47 +1640,10 @@ RESPONSE FORMAT:
             execution_logger.log_model_selection(selected_model, model_reasoning)
 
             # === FILE ATTACHMENTS HANDLING ===
-            # If files are attached, append their paths to the message for Composio to access
-            # SECURITY: Sanitize all file-related data to prevent injection
-            # First sanitize the base user message
+            # SECURITY: Sanitize the base user message first
             safe_user_message = sanitize_for_prompt(message) if message else ""
-            enhanced_message = safe_user_message
-            if file_attachments:
-                # MEMORY OPTIMIZATION: Use StringIO for efficient string building
-                from io import StringIO
-                file_context_buffer = StringIO()
-                file_context_buffer.write("\n\n📎 **Attached Files:**\n")
-
-                for file_info in file_attachments:
-                    # Sanitize filename and path to prevent injection
-                    safe_filename = sanitize_for_prompt(file_info.get('filename', 'unknown'))
-                    raw_path = file_info.get('file_path', '')
-                    safe_path = sanitize_file_path(raw_path)
-
-                    # SECURITY: Validate path against whitelist
-                    if not validate_file_path_whitelist(safe_path):
-                        logger.warning(f"Blocked file attachment with invalid path: {safe_path}")
-                        continue  # Skip this file
-
-                    safe_mime = sanitize_for_prompt(file_info.get('mime_type', 'unknown'))
-                    safe_size = int(file_info.get('size', 0)) if isinstance(file_info.get('size'), (int, str)) else 0
-
-                    file_context_buffer.write(f"\n**{safe_filename}** ({safe_mime}, {safe_size} bytes)\n")
-                    file_context_buffer.write(f"  📍 Path: `{safe_path}`\n")
-
-                    # Add extracted text preview if available
-                    if file_info.get('extraction_status') == 'success' and file_info.get('extracted_text'):
-                        # Sanitize extracted text to prevent prompt injection
-                        safe_preview = sanitize_for_prompt(file_info['extracted_text'][:800])
-                        file_context_buffer.write(f"  📝 Content Preview:\n```\n{safe_preview}\n```\n")
-                        if len(file_info['extracted_text']) > 800:
-                            file_context_buffer.write(f"  _(Total: {len(file_info['extracted_text'])} characters)_\n")
-                    elif file_info.get('extraction_status') == 'not_applicable':
-                        file_context_buffer.write(f"  ℹ️  Binary file (image/video/audio)\n")
-
-                file_context = file_context_buffer.getvalue()
-                enhanced_message += file_context
-                print(f"📎 Added context for {len(file_attachments)} file(s) to Composio prompt")
+            enhanced_message = safe_user_message  # Will be used when no file attachments
+            # Note: File attachments will be added as structured content later (see line 1700)
 
             # ============================================================
             # PHASE 8: AGENT CREATION & EXECUTION
@@ -1696,7 +1659,30 @@ RESPONSE FORMAT:
             runner = Runner()
 
             # Add the current user message (with file paths if any) to chat history
-            full_chat_history = (chat_history or []) + [{"role": "user", "content": enhanced_message}]
+            # STRUCTURED FILE HANDLING: If files are attached, pass them as structured content
+            if file_attachments:
+                # Build structured content with text + file references
+                content_parts = [{"type": "text", "text": safe_user_message}]
+
+                # Add each file as a structured reference with explicit instructions
+                for file_info in file_attachments:
+                    safe_filename = sanitize_for_prompt(file_info.get('filename', 'unknown'))
+                    safe_path = sanitize_file_path(file_info.get('file_path', ''))
+
+                    # Add file instruction as text for the LLM to understand
+                    file_instruction = f"\n\n📎 **File Available: {safe_filename}**\n"
+                    file_instruction += f"🔧 **For tool calls:** Use this exact file path:\n"
+                    file_instruction += f"```\n{safe_path}\n```\n"
+                    file_instruction += f"⚠️ **CRITICAL:** When calling tools that require a `file` parameter (like TWITTER_UPLOAD_MEDIA), "
+                    file_instruction += f"pass this path EXACTLY as shown above. Do not modify it.\n"
+
+                    content_parts.append({"type": "text", "text": file_instruction})
+
+                user_message_content = content_parts
+            else:
+                user_message_content = enhanced_message
+
+            full_chat_history = (chat_history or []) + [{"role": "user", "content": user_message_content}]
 
             # Mark execution as started
             execution_logger.log_execution_start()
