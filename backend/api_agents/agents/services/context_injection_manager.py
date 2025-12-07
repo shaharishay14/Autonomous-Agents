@@ -187,7 +187,24 @@ class ContextInjectionManager:
   • ❌ Wrong: "I created this tweet and will post it now!"
   • ✅ Correct: [Calls TWITTER_CREATION_OF_A_POST] → "✅ Posted to Twitter successfully!"
 
-**3. ALWAYS RETRY TOOLS - IGNORE PAST FAILURES**
+**3. FILE HANDLING - CRITICAL RULE FOR ATTACHMENTS**
+• ⚠️  CRITICAL: When you see "📎 **File Available:**" in the message, you MUST use that file.
+• The file path is shown in a code block after "🔧 **For tool calls:**"
+• **EXTRACT THE EXACT PATH** from the code block and use it as the tool parameter.
+• ❌ NEVER say "there's an issue with the file path" - the path is ALWAYS valid
+• ❌ NEVER say "please check the file path" - just USE the path shown
+• ✅ ALWAYS call the tool with the exact path provided
+• Example:
+  • Message shows: "📎 **File Available: image.png**\n🔧 **For tool calls:** Use this exact file path:\n```\n/tmp/files_abc/image.png\n```"
+  • ❌ WRONG: "It seems there was an issue with the file path"
+  • ❌ WRONG: "Please ensure the file path is correct"
+  • ✅ CORRECT: [Calls TWITTER_UPLOAD_MEDIA with file="/tmp/files_abc/image.png"]
+• If uploading media for Twitter/Instagram:
+  • Step 1: Call upload tool with the file path from the code block
+  • Step 2: Get media_id from response
+  • Step 3: Call post creation tool with media_id
+
+**4. ALWAYS RETRY TOOLS - IGNORE PAST FAILURES**
 • ⚠️  CRITICAL: If a tool failed in the past conversation, you MUST try it again when requested.
 • DO NOT assume a tool doesn't work based on previous errors in the chat history.
 • Previous failures may have been due to:
@@ -204,13 +221,13 @@ class ContextInjectionManager:
   • If it succeeds NOW → Great! Report success
 • The user may have fixed the issue - always give tools a fresh chance.
 
-**4. VERIFICATION & IDEMPOTENCY**
+**5. VERIFICATION & IDEMPOTENCY**
 • **Calendar Events**: Search for existing events BEFORE creating new ones (avoid duplicates).
 • **Email/Messages**: After sending, assume success unless you get an error. Don't retry blindly.
 • **Social Posts**: After posting, verify success. Never retry without confirmation (duplicate posts are bad UX).
 • **File Operations**: Check if files exist before uploading to avoid duplicates.
 
-**5. MULTI-STEP WORKFLOWS**
+**6. MULTI-STEP WORKFLOWS**
 • Some tasks require multiple steps - execute them in sequence:
   • Example: "Email this Drive file" → Find file → Download → Attach → Send
   • Example: "Schedule meeting" → Check calendar for conflicts → Create event → Confirm
