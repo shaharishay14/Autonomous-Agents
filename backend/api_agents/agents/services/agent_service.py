@@ -280,11 +280,8 @@ def sanitize_file_path(file_path: str) -> str:
     # Remove null bytes
     file_path = file_path.replace("\x00", "")
 
-    # Remove absolute path indicators
-    if file_path.startswith("/"):
-        file_path = file_path[1:]
-    if len(file_path) > 2 and file_path[1:3] == ":\\":  # Windows absolute path
-        file_path = file_path[3:]
+    # NOTE: We preserve absolute paths for Docker environment
+    # DO NOT strip leading slashes - tools need absolute paths like /tmp/composio_files_xxx/file.png
 
     # Whitelist allowed characters (alphanumeric, dots, underscores, hyphens, forward slashes, spaces)
     file_path = re.sub(r'[^a-zA-Z0-9._/ -]', '', file_path)
@@ -1707,6 +1704,7 @@ RESPONSE FORMAT:
                                     print(f"   ✅ Image added as vision content (base64 data URI)")
 
                                     # Also add file path as structured metadata for tool calls
+                                    print(f"   🔍 DEBUG: Passing file path to agent: {safe_path}")
                                     file_metadata = f"\n\n📎 **Image File: {safe_filename}**\n"
                                     file_metadata += f"🔧 **For tool calls:** Use this exact file path:\n"
                                     file_metadata += f"```\n{safe_path}\n```\n\n"
