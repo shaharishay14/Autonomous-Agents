@@ -17,7 +17,8 @@ select_tools_for_prompt() for precise tool selection.
 TOP_10_TOOLS_BY_APP = {
     "TWITTER": [
         "TWITTER_CREATION_OF_A_POST",  # Post tweet
-        "TWITTER_UPLOAD_MEDIA",  # Upload image/video
+        "TWITTER_UPLOAD_MEDIA",  # Upload image/video (≤5MB)
+        "TWITTER_UPLOAD_LARGE_MEDIA",  # Upload large image/video (>5MB)
         "TWITTER_GET_USERS_TWEETS_BY_ID_OR_USERNAME",  # Get tweets
         "TWITTER_SEARCH_TWEETS",  # Search tweets
         "TWITTER_DELETE_TWEET",  # Delete tweet
