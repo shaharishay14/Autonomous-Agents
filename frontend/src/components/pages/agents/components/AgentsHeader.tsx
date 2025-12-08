@@ -12,7 +12,7 @@ function AgentsHeader() {
             <h1 className={`text-3xl sm:text-4xl md:text-5xl font-bold mb-2 sm:mb-3 ${
               isDarkMode 
                 ? 'text-white' 
-                : 'bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent'
+                : 'bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent pb-1'
             }`}>
               Your Agents
             </h1>

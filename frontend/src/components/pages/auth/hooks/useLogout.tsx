@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'react-toastify'
+import { toast } from 'sonner'
 import { useUserStore } from '../../../../../store/user.store'
 import { logoutUser, type LogoutResponse } from '../requests'
 import type { AxiosError } from 'axios'
@@ -24,8 +24,6 @@ export const useLogout = () => {
       // ניקוי המשתמש מה-store
       clearUser()
       setIsAuthenticated(false)
-      // הצגת הודעת הצלחה
-      toast.success('Logged out successfully')
       
       // ניווט לדף ההתחברות
       navigate('/auth/signin')

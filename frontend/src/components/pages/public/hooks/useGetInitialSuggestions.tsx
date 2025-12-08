@@ -28,7 +28,7 @@ export const useGetInitialSuggestions = (agent?: Agent, hasMessages: boolean = f
         try {
           // שימוש ב-prompt של ה-agent (שהוא התיאור שלו) כבסיס להצעות
           await mutateAsync({
-            prompt: agent.prompt || 'שלום, במה אני יכול לעזור?',
+            prompt: agent.prompt || 'Hello, how can I help you?',
             app_connections: agent.app_connections || []
           });
         } catch (error) {

@@ -16,7 +16,7 @@ function FAQSection() {
   return (
     <section className="py-12 md:py-20">
       <div className="text-center px-4">
-        <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold mb-3 md:mb-4 bg-gradient-to-r bg-clip-text text-transparent ${
+        <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold mb-3 md:mb-4 bg-gradient-to-r bg-clip-text text-transparent pb-1 ${
           isDarkMode
             ? 'from-white to-gray-400'
             : 'from-purple-600 to-pink-600'

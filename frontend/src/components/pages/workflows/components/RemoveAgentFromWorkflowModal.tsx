@@ -1,19 +1,49 @@
+import { useMemo, useEffect } from 'react';
 import useDarkModeStore from '../../../../../store/darkmode.store';
 import useModalsStore from '../../../../../store/modals.store';
 import { useUpdateWorkflow } from '../hooks';
+import { useGetWorkflows } from '../hooks';
 
 function RemoveAgentFromWorkflowModal() {
   const { isDarkMode } = useDarkModeStore();
   const { removeAgentFromWorkflowModal, closeRemoveAgentFromWorkflowModal } = useModalsStore();
   const { mutate: updateWorkflow, isPending } = useUpdateWorkflow();
+  const { workflows } = useGetWorkflows();
+
+  // מצא את ה-workflow הנוכחי
+  const currentWorkflow = useMemo(() => 
+    workflows.find(w => w.id === removeAgentFromWorkflowModal.workflowId),
+    [workflows, removeAgentFromWorkflowModal.workflowId]
+  );
+
+  // אם ה-workflow לא קיים יותר (נמחק), סגור את ה-modal
+  useEffect(() => {
+    if (removeAgentFromWorkflowModal.isOpen && removeAgentFromWorkflowModal.workflowId && !currentWorkflow) {
+      closeRemoveAgentFromWorkflowModal();
+    }
+  }, [removeAgentFromWorkflowModal.isOpen, removeAgentFromWorkflowModal.workflowId, currentWorkflow, closeRemoveAgentFromWorkflowModal]);
+
+  // קבל את ה-agents הקיימים מה-workflow (רק IDs)
+  const existingAgents = useMemo(() => {
+    if (currentWorkflow?.agents) {
+      return currentWorkflow.agents.map(agent => agent.id);
+    }
+    return [];
+  }, [currentWorkflow]);
 
   if (!removeAgentFromWorkflowModal.isOpen) return null;
 
   const handleConfirm = () => {
-    if (removeAgentFromWorkflowModal.workflowId) {
+    if (removeAgentFromWorkflowModal.workflowId && removeAgentFromWorkflowModal.agentId) {
+      // הסר רק את ה-agent הספציפי מה-agents array
+      const agentIdToRemove = removeAgentFromWorkflowModal.agentId;
+      const updatedAgents = existingAgents.filter(
+        (id: string) => id !== agentIdToRemove
+      );
+      
       updateWorkflow({
         id: removeAgentFromWorkflowModal.workflowId,
-        data: { agent: '' } // מחק את ה-agent
+        data: { agents: updatedAgents }
       }, {
         onSuccess: () => {
           closeRemoveAgentFromWorkflowModal();

@@ -5,7 +5,7 @@ export const agents: Agent[] = [
     id: '1',
     user: 'user-123',
     name: 'SmartCartil Agent',
-    prompt: 'סוכן המלצות קניות שמתממחה בהמלצות על מוצרים באמצעות SmartCartil, המיועדת ליקון...',
+    prompt: 'Shopping recommendations agent specializing in product recommendations through SmartCartil, designed for Yikon...',
     tools: [],
     app_connections: [],
     agent_tools: [],

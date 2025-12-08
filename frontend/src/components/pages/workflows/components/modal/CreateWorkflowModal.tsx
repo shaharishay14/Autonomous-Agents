@@ -74,48 +74,56 @@ function CreateWorkflowModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
         onClick={handleClose}
       />
       
       {/* Modal */}
       <div 
-        className={`relative w-full max-w-xl rounded-2xl sm:rounded-3xl shadow-2xl border-2 max-h-[95vh] overflow-y-auto ${
+        className={`relative w-full max-w-xl rounded-3xl shadow-2xl border max-h-[95vh] overflow-hidden animate-in zoom-in-95 duration-300 ${
           isDarkMode 
-            ? 'bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 border-gray-700/50' 
-            : 'bg-white border-gray-200'
+            ? 'bg-gradient-to-br from-gray-950 via-black to-gray-950 border-gray-800/50 backdrop-blur-xl' 
+            : 'bg-white/95 backdrop-blur-xl border-gray-200/50'
         }`}
       >
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 md:p-8">
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 md:p-8">
           {/* Header */}
-          <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-            <div className={`p-2 sm:p-3 rounded-lg sm:rounded-xl flex-shrink-0 ${
-              isDarkMode 
-                ? 'bg-gradient-to-br from-purple-500 to-pink-500' 
-                : 'bg-gradient-to-br from-purple-500 to-pink-500'
-            }`}>
-              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          <div className="flex items-center justify-between mb-6 gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="p-1.5 rounded-lg flex-shrink-0 bg-gradient-to-br from-purple-500/60 via-pink-500/60 to-purple-600/60 shadow-md shadow-purple-500/10">
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h2 className={`text-base sm:text-lg md:text-xl font-semibold bg-gradient-to-r from-purple-400/80 via-pink-400/80 to-purple-400/80 bg-clip-text text-transparent`}>
+                  {isEditMode ? 'Edit Workflow' : 'Create New Workflow'}
+                </h2>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h2 className={`text-lg sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent`}>
-                {isEditMode ? 'Edit Workflow' : 'Create New Workflow'}
-              </h2>
-              <p className={`text-xs sm:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                {isEditMode ? 'Update your workflow details' : 'Give your workflow a name and description'}
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={handleClose}
+              className={`p-2 rounded-xl transition-all flex-shrink-0 hover:scale-110 ${
+                isDarkMode
+                  ? 'text-gray-400 hover:text-white hover:bg-white/10'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
           {/* Form Fields */}
-          <div className="space-y-4 sm:space-y-5 mb-6 sm:mb-8">
+          <div className="space-y-4 mb-6">
             {/* Workflow Name */}
             <div>
               <label 
                 htmlFor="workflow-name"
-                className={`block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2 ${
+                className={`block text-xs sm:text-sm font-medium mb-2 ${
                   isDarkMode ? 'text-gray-300' : 'text-gray-700'
                 }`}
               >
@@ -127,10 +135,10 @@ function CreateWorkflowModal() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Daily Report Generator"
-                className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border-2 transition-all outline-none text-sm sm:text-base ${
+                className={`w-full px-4 py-3 rounded-xl border transition-all outline-none text-sm sm:text-base ${
                   isDarkMode
-                    ? 'bg-gray-800/50 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500'
-                    : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-purple-500'
+                    ? 'bg-gray-900/80 border-gray-800/60 text-white placeholder-gray-500 focus:border-purple-500/80 focus:ring-2 focus:ring-purple-500/20'
+                    : 'bg-gray-50/80 border-gray-300/50 text-gray-900 placeholder-gray-400 focus:border-purple-500/80 focus:ring-2 focus:ring-purple-500/20'
                 }`}
                 required
                 autoFocus
@@ -141,7 +149,7 @@ function CreateWorkflowModal() {
             <div>
               <label 
                 htmlFor="workflow-description"
-                className={`block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2 ${
+                className={`block text-xs sm:text-sm font-medium mb-2 ${
                   isDarkMode ? 'text-gray-300' : 'text-gray-700'
                 }`}
               >
@@ -153,39 +161,41 @@ function CreateWorkflowModal() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Briefly describe what this workflow does..."
                 rows={3}
-                className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border-2 transition-all outline-none resize-none text-sm sm:text-base ${
+                className={`w-full px-4 py-3 rounded-xl border transition-all outline-none resize-none text-sm sm:text-base ${
                   isDarkMode
-                    ? 'bg-gray-800/50 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500'
-                    : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400 focus:border-purple-500'
+                    ? 'bg-gray-900/80 border-gray-800/60 text-white placeholder-gray-500 focus:border-purple-500/80 focus:ring-2 focus:ring-purple-500/20'
+                    : 'bg-gray-50/80 border-gray-300/50 text-gray-900 placeholder-gray-400 focus:border-purple-500/80 focus:ring-2 focus:ring-purple-500/20'
                 }`}
               />
             </div>
           </div>
 
           {/* Footer Buttons */}
-          <div className="flex gap-2 sm:gap-3">
+          <div className={`flex gap-3 mt-6 pt-6 border-t ${
+            isDarkMode ? 'border-gray-800/60' : 'border-gray-200/50'
+          }`}>
             <button
               type="button"
               onClick={handleClose}
-              className={`flex-1 py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg sm:rounded-xl font-medium transition-all text-sm sm:text-base ${
-                isDarkMode
-                  ? 'bg-gray-800 hover:bg-gray-700 text-gray-300'
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-              }`}
               disabled={isPending}
+              className={`flex-1 py-3.5 px-6 rounded-xl font-semibold transition-all duration-300 text-sm sm:text-base ${
+                isDarkMode
+                  ? 'bg-gray-900/80 hover:bg-gray-800/90 text-gray-300 hover:scale-105'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700 hover:scale-105'
+              } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!name.trim() || isPending}
-              className={`flex-1 py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg sm:rounded-xl font-medium transition-all flex items-center justify-center gap-1.5 sm:gap-2 text-sm sm:text-base ${
+              className={`flex-1 py-3.5 px-6 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 text-sm sm:text-base ${
                 !name.trim() || isPending
-                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg shadow-purple-500/50'
+                  ? 'bg-gray-600/50 text-gray-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-purple-500 via-pink-500 to-purple-600 hover:from-purple-600 hover:via-pink-600 hover:to-purple-700 text-white shadow-lg shadow-purple-500/50 hover:shadow-purple-500/70 hover:scale-105 active:scale-95'
               }`}
             >
-              {isEditMode ? <Save className="w-4 h-4 sm:w-5 sm:h-5" /> : <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />}
+              {isEditMode ? <Save className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
               <span className="hidden xs:inline">
                 {isPending 
                   ? (isEditMode ? 'Saving...' : 'Creating...') 

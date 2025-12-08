@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { deleteFile as deleteFileRequest } from '../requests';
 import useModalsStore from '../../../../../store/modals.store';
 import type { AxiosError } from 'axios';
@@ -20,10 +20,10 @@ export const useDeleteFile = (agentId: string | undefined) => {
       console.log('✅ הקובץ נמחק בהצלחה');
       queryClient.invalidateQueries({ queryKey: ['agent-files', agentId] });
       closeDeleteFileModal();
-      toast.success('הקובץ נמחק בהצלחה!');
+      toast.success('File deleted successfully!');
     },
     onError: (error) => {
-      const message = error.response?.data?.message || error.message || 'שגיאה במחיקת הקובץ';
+      const message = error.response?.data?.message || error.message || 'Error deleting file';
       console.error('❌ שגיאה במחיקת קובץ:', message);
       closeDeleteFileModal();
       toast.error(message);

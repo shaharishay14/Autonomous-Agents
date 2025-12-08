@@ -44,9 +44,9 @@ function Agents() {
       <div className="relative z-10">
       <AgentsHeader />
       
-      {isLoading && <LoadingState message="טוען את ה-Agents שלך..." />}
+      {isLoading && <LoadingState message="Loading your agents..." />}
       
-      {isError && <ErrorState message="שגיאה בטעינת ה-Agents" />}
+      {isError && <ErrorState message="Error loading agents" />}
       
       {!isLoading && !isError && agents && agents.length > 0 && (
         <AgentsGrid

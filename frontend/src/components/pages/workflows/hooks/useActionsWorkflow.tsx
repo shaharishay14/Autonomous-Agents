@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useModalsStore from '../../../../../store/modals.store';
 import { useGetWorkflows } from './useGetWorkflows';
 
@@ -13,7 +13,30 @@ export const useActionsWorkflow = () => {
     selectedWorkflowId,
     setSelectedWorkflowId,
   } = useGetWorkflows();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  // בדוק אם אנחנו ב-mobile בהתחלה - ב-mobile ה-sidebar סגור כברירת מחדל
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768; // md breakpoint
+    }
+    return true; // fallback for SSR
+  });
+
+  // עדכן את המצב כשגודל המסך משתנה
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        // ב-desktop, פתח את ה-sidebar כברירת מחדל
+        setIsSidebarOpen(true);
+      } else {
+        // ב-mobile, סגור את ה-sidebar
+        setIsSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleCreateWorkflow = () => {
     openCreateWorkflowModal();

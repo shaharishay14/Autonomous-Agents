@@ -4,7 +4,12 @@ import { useDeleteWorkflow } from '../hooks';
 
 function DeleteWorkflowModal() {
   const { isDarkMode } = useDarkModeStore();
-  const { deleteWorkflowModal, closeDeleteWorkflowModal } = useModalsStore();
+  const { 
+    deleteWorkflowModal, 
+    closeDeleteWorkflowModal,
+    closeAddAgentToWorkflowModal,
+    closeRemoveAgentFromWorkflowModal
+  } = useModalsStore();
   const { mutate: deleteWorkflow, isPending } = useDeleteWorkflow();
 
   if (!deleteWorkflowModal.isOpen) return null;
@@ -13,7 +18,10 @@ function DeleteWorkflowModal() {
     if (deleteWorkflowModal.workflowId) {
       deleteWorkflow(deleteWorkflowModal.workflowId, {
         onSuccess: () => {
+          // סגור את כל ה-modals הקשורים ל-workflow שנמחק
           closeDeleteWorkflowModal();
+          closeAddAgentToWorkflowModal();
+          closeRemoveAgentFromWorkflowModal();
         },
       });
     }

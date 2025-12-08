@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AgentSidebar, ChatArea, ChatLayout } from './components';
 import { CreateTriggerModal } from './components/modals';
 import { ResetMemoryModal, ShareAgentModal, TelegramBotModal } from '../../shared/modals';
@@ -11,7 +11,30 @@ import { LoadingState, ErrorState } from '../../shared/components';
 function Chat() {
   const { isDarkMode } = useDarkModeStore();
   const { id } = useParams<{ id: string }>();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  // בדוק אם אנחנו ב-mobile בהתחלה - ב-mobile ה-sidebar סגור כברירת מחדל
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768; // md breakpoint
+    }
+    return true; // fallback for SSR
+  });
+
+  // עדכן את המצב כשגודל המסך משתנה
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        // ב-desktop, פתח את ה-sidebar כברירת מחדל
+        setIsSidebarOpen(true);
+      } else {
+        // ב-mobile, סגור את ה-sidebar
+        setIsSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // שליפת נתוני האייג'נט
   const { agent, isLoading, isError } = useGetAgent(id || '');
@@ -39,7 +62,7 @@ function Chat() {
   if (isError) {
     return (
       <ChatLayout isDarkMode={isDarkMode}>
-        <ErrorState message="שגיאה בטעינת האייג'נט" />
+        <ErrorState message="Error loading agent" />
       </ChatLayout>
     );
   }

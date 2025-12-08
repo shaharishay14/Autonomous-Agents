@@ -1,6 +1,5 @@
 export { useGetAgent } from './useGetAgent';
 export { useGetAgentMessages } from './useGetAgentMessages';
-export { useSendMessage } from './useSendMessage';
 export { useSendMessageStream } from './useSendMessageStream';
 export { useUpdateAgent } from './useUpdateAgent';
 export { useGetAgentFiles } from './useGetAgentFiles';

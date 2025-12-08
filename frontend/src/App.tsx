@@ -1,23 +1,34 @@
 import Router from './components/router'
-import { ToastContainer } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
+import { Toaster } from 'sonner'
 
 function App() {
 
   return (
   <>
     <Router />
-    <ToastContainer
+    <Toaster 
       position="top-right"
-      autoClose={3000}
-      hideProgressBar={false}
-      newestOnTop={false}
-      closeOnClick
-      rtl={false}
-      pauseOnFocusLoss
-      draggable
-      pauseOnHover
-      theme="colored"
+      richColors
+      closeButton={false}
+      duration={2000}
+      expand={true}
+      toastOptions={{
+        style: {
+          borderRadius: '12px',
+          border: '1px solid hsl(var(--border))',
+          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)',
+          padding: '16px',
+          fontSize: '14px',
+          fontWeight: '500',
+        },
+        classNames: {
+          toast: 'sonner-toast',
+          success: 'sonner-success',
+          error: 'sonner-error',
+          info: 'sonner-info',
+          warning: 'sonner-warning',
+        },
+      }}
     />
   </>
   )

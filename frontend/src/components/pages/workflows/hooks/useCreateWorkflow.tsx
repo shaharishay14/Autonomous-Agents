@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { createWorkflow } from '../requests';
 import type { CreateWorkflowRequest, CreateWorkflowResponse } from '../types';
 
@@ -15,7 +15,7 @@ export const useCreateWorkflow = () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
     },
     onError: (error) => {
-      toast.error('שגיאה ביצירת Workflow');
+      toast.error('Error creating workflow');
       console.error('Error creating workflow:', error);
     },
   });

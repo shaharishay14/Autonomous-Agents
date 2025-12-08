@@ -32,34 +32,35 @@ function AgentCard({ agent, onDelete }: AgentCardProps) {
   return (
     <div 
       onClick={handleCardClick}
-      className={`group relative rounded-xl md:rounded-2xl p-4 md:p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl backdrop-blur-sm overflow-hidden cursor-pointer ${
+      className={`group relative h-full flex flex-col rounded-xl md:rounded-2xl p-4 md:p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl backdrop-blur-sm overflow-hidden cursor-pointer ${
         isDarkMode
           ? 'bg-gradient-to-br from-purple-900/5 via-gray-900/30 to-pink-900/5 border border-white/[0.08] hover:from-purple-900/20 hover:via-pink-900/20 hover:to-purple-900/20 hover:border-purple-500/30 hover:shadow-purple-500/20'
-          : 'bg-white/70 border border-purple-200 hover:bg-gradient-to-br hover:from-purple-100 hover:via-pink-50 hover:to-purple-100 hover:border-purple-400 hover:shadow-purple-500/30'
+          : 'bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100 border border-purple-300 hover:from-purple-100 hover:via-pink-100 hover:to-purple-200 hover:border-purple-400 hover:shadow-purple-500/30'
       }`}>
       {/* Subtle gradient overlay */}
       <div className={`absolute inset-0 transition-all duration-300 pointer-events-none ${
         isDarkMode
           ? 'bg-gradient-to-r from-purple-500/[0.02] via-pink-500/[0.02] to-purple-500/[0.02] group-hover:from-purple-500/5 group-hover:via-pink-500/5 group-hover:to-purple-500/5'
-          : 'bg-gradient-to-r from-purple-100/20 via-pink-50/20 to-purple-100/20 group-hover:from-purple-200/30 group-hover:via-pink-100/30 group-hover:to-purple-200/30'
+          : 'bg-gradient-to-r from-purple-200/30 via-pink-100/30 to-purple-200/30 group-hover:from-purple-300/40 group-hover:via-pink-200/40 group-hover:to-purple-300/40'
       }`}></div>
       
-      <div className="relative z-10">
+      <div className="relative z-10 flex-1 flex flex-col">
         {/* Header with Icon and Info */}
         <div className="flex items-start gap-3 md:gap-4 mb-4 md:mb-6">
-          <div 
-            className={`flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-lg md:rounded-xl flex items-center justify-center text-2xl md:text-3xl group-hover:scale-110 transition-transform duration-300 overflow-hidden ${
-              isDarkMode
-                ? 'bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30'
-                : 'bg-purple-100 border-2 border-purple-300'
-            }`}
-            style={avatarUrl ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
-          >
-            {!avatarUrl && '🤖'}
-          </div>
+          {avatarUrl ? (
+            <img 
+              src={avatarUrl}
+              alt={agent.name}
+              className="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-lg md:rounded-xl group-hover:scale-110 transition-transform duration-300 object-cover"
+            />
+          ) : (
+            <div className="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-lg md:rounded-xl flex items-center justify-center text-2xl md:text-3xl group-hover:scale-110 transition-transform duration-300">
+              🤖
+            </div>
+          )}
           
           <div className="flex-1 min-w-0">
-            <h3 className={`text-lg md:text-xl font-semibold mb-1.5 md:mb-2 ${
+            <h3 className={`text-lg md:text-xl font-semibold mb-1.5 md:mb-2 truncate ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
               {agent.name}
@@ -89,7 +90,7 @@ function AgentCard({ agent, onDelete }: AgentCardProps) {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-2 md:gap-3">
+        <div className="flex justify-end gap-2 md:gap-3 mt-auto">
           <button 
             onClick={handleShare}
             className={`p-2 md:p-2.5 rounded-lg md:rounded-xl transition-all duration-300 group/btn ${

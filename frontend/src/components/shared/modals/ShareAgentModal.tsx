@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import useDarkModeStore from '../../../../store/darkmode.store';
 import useModalsStore from '../../../../store/modals.store';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import {
   ModalHeader,
   ModalFooter,

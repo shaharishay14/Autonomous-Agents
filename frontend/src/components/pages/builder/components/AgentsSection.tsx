@@ -28,7 +28,7 @@ function AgentsSection() {
   if (isLoading) {
     return (
       <section className="py-12 md:py-20 px-4">
-        <LoadingState message="טוען את ה-Agents שלך..." />
+        <LoadingState message="Loading your agents..." />
       </section>
     );
   }
@@ -36,7 +36,7 @@ function AgentsSection() {
   if (isError) {
     return (
       <section className="py-12 md:py-20 px-4">
-        <ErrorState message="שגיאה בטעינת ה-Agents" />
+        <ErrorState message="Error loading agents" />
       </section>
     );
   }

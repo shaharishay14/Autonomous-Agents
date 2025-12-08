@@ -1,6 +1,7 @@
 import { ChatMessage } from './ChatMessage';
 import { StreamingMessage } from './StreamingMessage';
 import { ChatEmptyState } from './ChatEmptyState';
+import { TypingIndicator } from './TypingIndicator';
 import type { Agent, Message } from '../types';
 
 interface ChatMessagesProps {
@@ -37,7 +38,8 @@ export const ChatMessages = ({
               <ChatMessage 
                 key={message.id} 
                 message={message} 
-                isDarkMode={isDarkMode} 
+                isDarkMode={isDarkMode}
+                agentData={agentData}
               />
             ))}
             
@@ -45,12 +47,21 @@ export const ChatMessages = ({
             {isStreamingResponse && currentStreamingContent && (
               <StreamingMessage 
                 isDarkMode={isDarkMode} 
-                content={currentStreamingContent} 
+                content={currentStreamingContent}
+                agentData={agentData}
               />
             )}
             
-            {/* Status indicator when streaming */}
-            {status && (
+            {/* Status indicator when streaming - 3 dots animation on left side */}
+            {status && status.toLowerCase().includes('analyzing') && (
+              <TypingIndicator 
+                isDarkMode={isDarkMode}
+                agentData={agentData}
+              />
+            )}
+            
+            {/* Other status messages */}
+            {status && !status.toLowerCase().includes('analyzing') && (
               <div className="flex justify-center my-2">
                 <div className={`px-4 py-2 rounded-full text-sm ${
                   isDarkMode

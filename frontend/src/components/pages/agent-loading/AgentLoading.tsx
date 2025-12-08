@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
+import useDarkModeStore from '../../../../store/darkmode.store';
 
 function AgentLoading() {
   const navigate = useNavigate();
+  const { isDarkMode } = useDarkModeStore();
 
   useEffect(() => {
     // בדיקה אם יש מידע של agent חדש ב-sessionStorage
@@ -23,9 +25,17 @@ function AgentLoading() {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900">
+    <div className={`min-h-screen w-full flex items-center justify-center transition-colors duration-300 ${
+      isDarkMode 
+        ? 'bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900' 
+        : 'bg-gradient-to-br from-white via-purple-50/30 to-pink-50/30'
+    }`}>
       <div className="relative max-w-md w-full mx-4">
-        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl shadow-2xl p-8 border border-gray-700/50">
+        <div className={`bg-gradient-to-br rounded-3xl shadow-2xl p-8 border transition-colors duration-300 ${
+          isDarkMode 
+            ? 'from-gray-900 to-gray-800 border-gray-700/50' 
+            : 'from-white to-gray-50 border-gray-200/50'
+        }`}>
           {/* Animated Agent Icon */}
           <div className="flex justify-center mb-8">
             <div className="relative">
@@ -40,17 +50,21 @@ function AgentLoading() {
               </div>
 
               {/* Center Icon */}
-              <div className="relative bg-gradient-to-br from-pink-500 via-purple-500 to-orange-500 rounded-full p-1 shadow-xl">
-                <div className="bg-gray-900 rounded-full p-8">
-                  <Bot className="w-16 h-16 text-white animate-pulse" />
-                </div>
+              <div className="relative flex items-center justify-center">
+                <img 
+                  src="/assets/gif/agent_happy.gif" 
+                  alt="Agent loading" 
+                  className="w-32 h-32 object-contain"
+                />
               </div>
             </div>
           </div>
 
           {/* Title with animated dots */}
           <div className="text-center mb-4">
-            <h2 className="text-2xl md:text-3xl font-bold text-white flex items-center justify-center gap-2">
+            <h2 className={`text-2xl md:text-3xl font-bold flex items-center justify-center gap-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
               Creating your agent
               <span className="flex gap-1">
                 <span className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
@@ -61,17 +75,25 @@ function AgentLoading() {
           </div>
 
           {/* Progress Bar */}
-          <div className="relative w-full h-2 bg-gray-700 rounded-full overflow-hidden mb-6">
+          <div className={`relative w-full h-2 rounded-full overflow-hidden mb-6 transition-colors duration-300 ${
+            isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+          }`}>
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 animate-progress"></div>
           </div>
 
           {/* Status Messages */}
           <div className="space-y-3 text-center">
-            <p className="text-gray-300 text-lg flex items-center justify-center gap-2">
-              <Sparkles className="w-5 h-5 text-yellow-400 animate-pulse" />
+            <p className={`text-lg flex items-center justify-center gap-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              <Sparkles className={`w-5 h-5 animate-pulse transition-colors duration-300 ${
+                isDarkMode ? 'text-yellow-400' : 'text-yellow-500'
+              }`} />
               Analyzing your requirements...
             </p>
-            <p className="text-gray-500 text-sm">
+            <p className={`text-sm transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-500' : 'text-gray-400'
+            }`}>
               This may take a few moments
             </p>
           </div>

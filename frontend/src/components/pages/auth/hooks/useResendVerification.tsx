@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { toast } from 'react-toastify'
+import { toast } from 'sonner'
 import { resendVerificationEmail, type ResendVerificationResponse } from '../requests'
 import type { AxiosError } from 'axios'
 

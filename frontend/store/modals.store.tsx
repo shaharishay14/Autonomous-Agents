@@ -41,6 +41,7 @@ interface AddAgentToWorkflowModalState {
 interface RemoveAgentFromWorkflowModalState {
   isOpen: boolean;
   workflowId: number | null;
+  agentId: string | null;
   agentName: string | null;
 }
 
@@ -95,7 +96,7 @@ interface ModalsStore {
   closeAddAgentToWorkflowModal: () => void;
 
   removeAgentFromWorkflowModal: RemoveAgentFromWorkflowModalState;
-  openRemoveAgentFromWorkflowModal: (workflowId: number, agentName: string) => void;
+  openRemoveAgentFromWorkflowModal: (workflowId: number, agentId: string, agentName: string) => void;
   closeRemoveAgentFromWorkflowModal: () => void;
 
   shareAgentModal: ShareAgentModalState;
@@ -264,13 +265,15 @@ const useModalsStore = create<ModalsStore>((set) => ({
   removeAgentFromWorkflowModal: {
     isOpen: false,
     workflowId: null,
+    agentId: null,
     agentName: null,
   },
-  openRemoveAgentFromWorkflowModal: (workflowId: number, agentName: string) =>
+  openRemoveAgentFromWorkflowModal: (workflowId: number, agentId: string, agentName: string) =>
     set({
       removeAgentFromWorkflowModal: {
         isOpen: true,
         workflowId,
+        agentId,
         agentName,
       },
     }),
@@ -279,6 +282,7 @@ const useModalsStore = create<ModalsStore>((set) => ({
       removeAgentFromWorkflowModal: {
         isOpen: false,
         workflowId: null,
+        agentId: null,
         agentName: null,
       },
     }),

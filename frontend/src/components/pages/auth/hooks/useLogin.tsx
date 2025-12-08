@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
-import { toast } from 'react-toastify'
+import { toast } from 'sonner'
 import { signinSchema } from '../schema'
 import { useUserStore } from '../../../../../store/user.store'
 import { loginUser, type LoginResponse } from '../requests'
@@ -42,9 +42,6 @@ export const useLogin = () => {
       // data.access - access token
       // data.refresh - refresh token
       
-      // הצגת הודעת הצלחה
-      toast.success(`Welcome back, ${data.user.username}!`)
-      
       // ניווט לדף הbuilder
       navigate('/builder')
     },
@@ -53,7 +50,9 @@ export const useLogin = () => {
       if (error.response?.status === 403) {
         const detail = error.response?.data?.detail
         if (detail === 'Email verification required. Verification email sent.') {
-          toast.info('Please verify your email. Verification email sent.')
+          toast('Please verify your email. Verification email sent.', {
+            description: 'A verification email has been sent to your inbox.',
+          })
           navigate('/auth/verify-email-prompt')
           return
         }

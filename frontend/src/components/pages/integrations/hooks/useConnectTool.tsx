@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { useLocation } from 'react-router-dom';
 import { connectTool } from '../requests';
 import type { Integration } from '../components/types';

@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'react-toastify'
+import { toast } from 'sonner'
 import { verifyEmail, type VerifyEmailResponse } from '../requests'
 import type { VerifyEmailFormData } from '../types'
 import type { AxiosError } from 'axios'

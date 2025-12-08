@@ -49,7 +49,7 @@ function ChatArea({ agentId, agent, onToggleSidebar, isSidebarOpen, suggestedPro
   if (isErrorMessages) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <ErrorState message="שגיאה בטעינת ההודעות" />
+        <ErrorState message="Error loading messages" />
       </div>
     );
   }

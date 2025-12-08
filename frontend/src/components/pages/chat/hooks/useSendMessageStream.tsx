@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import type { Message } from '../types';
 
@@ -172,10 +172,6 @@ export const useSendMessageStream = (agentId: string) => {
         headers['X-CSRFToken'] = csrfToken;
       }
       
-      console.log('📤 Sending request to:', url);
-      console.log('📤 Headers:', headers);
-      console.log('📤 Files count:', files.length);
-      
       await fetchEventSource(url, {
         method: 'POST',
         headers,
@@ -184,17 +180,14 @@ export const useSendMessageStream = (agentId: string) => {
         signal: abortControllerRef.current.signal,
         
         async onopen(response) {
-          console.log('📡 Response Status:', response.status);
-          console.log('📡 Response Headers:', Object.fromEntries(response.headers.entries()));
           
           if (response.ok && response.headers.get('content-type')?.includes('text/event-stream')) {
-            console.log('✅ Stream נפתח בהצלחה');
             return;
           } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
             // שגיאת client - לא צריך retry
             try {
               const contentType = response.headers.get('content-type');
-              let errorMessage = `שגיאה: ${response.status}`;
+              let errorMessage = `Error: ${response.status}`;
               
               if (contentType?.includes('application/json')) {
                 const errorData = await response.json();
@@ -211,11 +204,11 @@ export const useSendMessageStream = (agentId: string) => {
               if (e instanceof Error) {
                 throw e;
               }
-              throw new Error(`שגיאה: ${response.status}`);
+              throw new Error(`Error: ${response.status}`);
             }
           } else {
             // שגיאת server או network - ה-library ינסה שוב
-            throw new Error(`שגיאת שרת: ${response.status}`);
+            throw new Error(`Server error: ${response.status}`);
           }
         },
 
@@ -229,8 +222,6 @@ export const useSendMessageStream = (agentId: string) => {
             data = event.data;
           }
 
-          console.log(`📨 Event: ${eventType}`, data);
-
           switch (eventType) {
             case 'status':
               const statusData = data as StatusData;
@@ -239,29 +230,25 @@ export const useSendMessageStream = (agentId: string) => {
 
             case 'tool_call_start':
               const toolStartData = data as ToolCallStartData;
-              setStatus(`מריץ כלי: ${toolStartData.tool}...`);
+              setStatus(`Running ${toolStartData.tool}...`);
               break;
 
             case 'tool_call_result':
               const toolResultData = data as ToolCallResultData;
               if (toolResultData.success) {
-                setStatus(`${toolResultData.tool} הושלם בהצלחה`);
+                setStatus(`${toolResultData.tool} completed successfully`);
               } else {
-                setStatus(`שגיאה ב-${toolResultData.tool}`);
+                setStatus(`Error running ${toolResultData.tool}`);
               }
               break;
 
             case 'content_delta':
               const contentData = data as ContentDeltaData;
-              console.log('📝 Content Delta:', contentData.content);
-              console.log('📦 מוסיף לתור, אורך תור נוכחי:', chunksQueueRef.current.length);
               addChunkToQueue(contentData.content);
-              console.log('📦 אחרי הוספה, אורך תור:', chunksQueueRef.current.length);
               break;
 
             case 'message_complete':
               const completeData = data as MessageCompleteData;
-              console.log('✅ Message Complete - מנקה streaming ומוסיף הודעה מלאה');
               
               // ניקוי מיידי של כל ה-streaming
               clearStreaming();
@@ -285,7 +272,6 @@ export const useSendMessageStream = (agentId: string) => {
               break;
 
             case 'done':
-              console.log('✅ Stream הסתיים');
               
               setStatus('');
               setIsSending(false);
@@ -320,7 +306,7 @@ export const useSendMessageStream = (agentId: string) => {
             return;
           }
           
-          const errorMessage = error instanceof Error ? error.message : 'שגיאה בשליחת ההודעה';
+          const errorMessage = error instanceof Error ? error.message : 'Error sending message';
           toast.error(errorMessage);
           
           // עצירת ה-retry

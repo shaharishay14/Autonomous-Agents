@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { isHebrewText } from '../utils';
-import type { Message } from '../types';
+import { isHebrewText, formatAvatarUrl } from '../utils';
+import type { Message, Agent } from '../types';
 
 interface ChatMessageProps {
   message: Message;
   isDarkMode: boolean;
+  agentData?: Agent;
 }
 
-export const ChatMessage = ({ message, isDarkMode }: ChatMessageProps) => {
+export const ChatMessage = ({ message, isDarkMode, agentData }: ChatMessageProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const isHebrew = isHebrewText(message.content);
+  const avatarUrl = formatAvatarUrl(agentData?.avatar_base64);
 
   const handleCopy = async () => {
     try {
@@ -32,7 +34,7 @@ export const ChatMessage = ({ message, isDarkMode }: ChatMessageProps) => {
     >
       <div className={`flex gap-3 max-w-full md:max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
         {/* Avatar */}
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden ${
           message.role === 'user'
             ? isDarkMode
               ? 'bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30'
@@ -41,7 +43,17 @@ export const ChatMessage = ({ message, isDarkMode }: ChatMessageProps) => {
               ? 'bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30'
               : 'bg-gradient-to-br from-purple-400 to-pink-500 border border-purple-300'
         }`}>
-          <span className="text-sm">{message.role === 'user' ? '👤' : '🤖'}</span>
+          {message.role === 'user' ? (
+            <span className="text-sm">👤</span>
+          ) : avatarUrl ? (
+            <img 
+              src={avatarUrl}
+              alt={agentData?.name || 'Agent'}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="text-sm">🤖</span>
+          )}
         </div>
 
         {/* Message Content */}
@@ -65,7 +77,7 @@ export const ChatMessage = ({ message, isDarkMode }: ChatMessageProps) => {
             }`}
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {message.content}
+              {message.content.replace(/\\n/g, '\n')}
             </ReactMarkdown>
           </div>
           

@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
-import { toast } from 'react-toastify'
+import { toast } from 'sonner'
 import { forgotPasswordSchema } from '../schema'
 import { forgotPassword, type ForgotPasswordResponse } from '../requests'
 import type { ForgotPasswordFormData } from '../types'

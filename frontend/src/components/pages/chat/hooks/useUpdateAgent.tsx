@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { updateAgent } from '../requests';
 import type { UpdateAgentPayload, Agent } from '../types';
 import type { AxiosError } from 'axios';
@@ -40,10 +40,10 @@ export const useUpdateAgent = (agentId: string, agent?: Agent) => {
         queryClient.invalidateQueries({ queryKey: ['combinedAvailableTools', agentId] });
       }
       
-      toast.success('השינויים נשמרו בהצלחה!');
+      toast.success('Changes saved successfully!');
     },
     onError: (error) => {
-      const message = error.response?.data?.message || error.message || 'שגיאה בשמירת השינויים';
+      const message = error.response?.data?.message || error.message || 'Error saving changes';
       console.error('❌ שגיאה בעדכון agent:', message);
       toast.error(message);
     },
@@ -59,14 +59,14 @@ export const useUpdateAgent = (agentId: string, agent?: Agent) => {
     // בדיקת סוג הקובץ
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
     if (!validTypes.includes(file.type)) {
-      toast.error('ניתן להעלות רק קבצי JPEG או PNG');
+      toast.error('Only JPEG or PNG files can be uploaded');
       return;
     }
 
     // בדיקת גודל (מקסימום 5MB)
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
-      toast.error('גודל הקובץ לא יכול לעבור 5MB');
+      toast.error('File size cannot exceed 5MB');
       return;
     }
 

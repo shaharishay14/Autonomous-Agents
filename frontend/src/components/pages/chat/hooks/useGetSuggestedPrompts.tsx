@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { getSuggestedPrompts } from '../requests';
 import type { SuggestedPromptsPayload, SuggestedPromptsResponse } from '../types';
 import type { AxiosError } from 'axios';
@@ -19,7 +19,7 @@ export const useGetSuggestedPrompts = (messages: Message[], agent?: Agent) => {
     mutationFn: (payload) => getSuggestedPrompts(payload),
     onSuccess: () => {},
     onError: (error) => {
-      const message = error.response?.data?.message || error.message || 'שגיאה בקבלת הצעות פרומפטים';
+      const message = error.response?.data?.message || error.message || 'Error getting suggested prompts';
       toast.error(message);
     },
   });
@@ -70,7 +70,7 @@ export const useGetSuggestedPrompts = (messages: Message[], agent?: Agent) => {
             
             // קריאה להצעות ראשוניות על בסיס ה-prompt של האייג'נט
             await mutateAsync({
-              prompt: agent.prompt || 'שלום, במה אני יכול לעזור?',
+              prompt: agent.prompt || 'Hello, how can I help you?',
               app_connections: appConnections
             });
             

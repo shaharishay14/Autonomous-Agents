@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { deleteConnection } from '../requests';
 import type { Integration } from '../components/types';
 import type { AxiosError } from 'axios';
@@ -21,14 +21,14 @@ export const useDisconnectTool = (integrations: Integration[]) => {
       // רענון הנתונים
       queryClient.invalidateQueries({ queryKey: ['availableTools'] });
       
-      toast.success('החיבור נותק בהצלחה');
+      toast.success('Connection disconnected successfully');
       setDisconnectingToolName(null);
     },
     onError: (error, connectionId) => {
       console.error('❌ שגיאה בניתוק החיבור:', connectionId);
       console.error('📄 פרטי השגיאה:', error.response?.data || error.message);
       
-      toast.error('שגיאה בניתוק החיבור. אנא נסה שוב.');
+      toast.error('Error disconnecting. Please try again.');
       setDisconnectingToolName(null);
     },
   });

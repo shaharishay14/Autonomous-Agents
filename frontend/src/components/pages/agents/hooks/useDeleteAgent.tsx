@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { deleteAgent } from '../requests';
 import useModalsStore from '../../../../../store/modals.store';
 import type { AxiosError } from 'axios';
@@ -16,13 +16,13 @@ export const useDeleteAgent = () => {
   const { mutate, isPending, isSuccess, isError, error } = useMutation<void, AxiosError<ErrorResponse>, string>({
     mutationFn: deleteAgent,
     onSuccess: () => {
-      toast.success('האייג\'נט נמחק בהצלחה!');
+      toast.success('Agent deleted successfully!');
       // רענון רשימת ה-agents
       queryClient.invalidateQueries({ queryKey: ['agents'] });
       closeDeleteModal();
     },
     onError: (error) => {
-      const message = error.response?.data?.message || error.message || 'שגיאה במחיקת האייג\'נט';
+      const message = error.response?.data?.message || error.message || 'Error deleting agent';
       console.error('❌ שגיאה במחיקת agent:', message);
       toast.error(message);
     },

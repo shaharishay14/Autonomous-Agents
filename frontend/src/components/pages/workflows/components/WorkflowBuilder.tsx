@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useMemo, useEffect, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -32,6 +32,9 @@ function WorkflowBuilder({ workflowId }: WorkflowBuilderProps) {
   const { isDarkMode } = useDarkModeStore();
   const { openAddAgentToWorkflowModal, openRemoveAgentFromWorkflowModal } = useModalsStore();
   const { workflows } = useGetWorkflows();
+  
+  // שמור את תוצאות הביצוע לכל agent
+  const [executionResults, setExecutionResults] = useState<Record<string, string>>({});
 
   // מצא את ה-workflow הנוכחי
   const currentWorkflow = useMemo(() => 
@@ -43,47 +46,66 @@ function WorkflowBuilder({ workflowId }: WorkflowBuilderProps) {
     openAddAgentToWorkflowModal(workflowId);
   }, [workflowId, openAddAgentToWorkflowModal]);
 
-  const handleDeleteAgent = useCallback(() => {
-    if (currentWorkflow?.id && currentWorkflow?.agent_name) {
+  const handleDeleteAgent = useCallback((agentId: string, agentName?: string) => {
+    if (currentWorkflow?.id) {
       // פתח modal אישור למחיקה
-      openRemoveAgentFromWorkflowModal(currentWorkflow.id, currentWorkflow.agent_name);
+      const name = agentName || 'Agent';
+      openRemoveAgentFromWorkflowModal(currentWorkflow.id, agentId, name);
     }
   }, [currentWorkflow, openRemoveAgentFromWorkflowModal]);
 
-  const handleOpenAgentInNewTab = useCallback(() => {
-    if (currentWorkflow?.agent) {
-      window.open(`/chat/${currentWorkflow.agent}`, '_blank');
+  const handleOpenAgentInNewTab = useCallback((agentId: string) => {
+    if (agentId) {
+      window.open(`/chat/${agentId}`, '_blank');
     }
-  }, [currentWorkflow]);
+  }, []);
+
+  const handleExecutionResult = useCallback((agentId: string, message: string) => {
+    setExecutionResults(prev => ({
+      ...prev,
+      [agentId]: message,
+    }));
+  }, []);
 
   // בנה את ה-nodes בהתאם לנתונים האמיתיים
   const buildNodes = useCallback(() => {
+    const agents = currentWorkflow?.agents || [];
+    const agentIds = agents.map(agent => agent.id);
+    
     const nodes: Node[] = [
       {
         id: '1',
         type: 'startNode',
         position: { x: 100, y: 200 },
-        data: {},
+        data: {
+          workflowId: workflowId,
+          agentIds: agentIds,
+          onExecutionResult: handleExecutionResult,
+        },
       },
     ];
 
     let nextPosition = 500;
 
-    // אם יש agent ב-workflow, הוסף אותו
-    if (currentWorkflow?.agent && currentWorkflow?.agent_name) {
-      nodes.push({
-        id: '2',
-        type: 'agentNode',
-        position: { x: nextPosition, y: 200 },
-        data: { 
-          label: currentWorkflow.agent_name, 
-          icon: '🤖',
-          agentId: currentWorkflow.agent,
-          onDelete: handleDeleteAgent,
-          onOpenInNewTab: handleOpenAgentInNewTab,
-        },
+    // אם יש agents ב-workflow, הוסף אותם
+    if (agents.length > 0) {
+      agents.forEach((agent, index) => {
+        nodes.push({
+          id: `agent-${index + 1}`,
+          type: 'agentNode',
+          position: { x: nextPosition, y: 200 },
+          data: { 
+            label: agent.name || `Agent ${index + 1}`, 
+            avatar_base64: agent.avatar_base64,
+            agentId: agent.id,
+            executionResult: executionResults[agent.id],
+            onDelete: () => handleDeleteAgent(agent.id, agent.name),
+            onOpenInNewTab: () => handleOpenAgentInNewTab(agent.id),
+          },
+        });
+        // המרווח הוא 500px כדי למנוע חפיפה (AgentNode יכול להיות עד 400px רחב)
+        nextPosition += 500;
       });
-      nextPosition += 350;
     }
 
     // תמיד הוסף את כפתור Add Agent
@@ -95,25 +117,38 @@ function WorkflowBuilder({ workflowId }: WorkflowBuilderProps) {
     });
 
     return nodes;
-  }, [currentWorkflow, handleAddAgent, handleDeleteAgent, handleOpenAgentInNewTab]);
+  }, [currentWorkflow, handleAddAgent, handleDeleteAgent, handleOpenAgentInNewTab, handleExecutionResult, executionResults]);
 
   // בנה את ה-edges בהתאם ל-nodes
   const buildEdges = useCallback(() => {
     const edges: Edge[] = [];
+    const agents = currentWorkflow?.agents || [];
 
-    if (currentWorkflow?.agent) {
-      // חבר Start -> Agent
+    if (agents.length > 0) {
+      // חבר Start -> Agent הראשון
       edges.push({
-        id: 'e1-2',
+        id: 'e1-agent-1',
         source: '1',
-        target: '2',
+        target: 'agent-1',
         animated: true,
         style: { stroke: '#a855f7', strokeWidth: 2 },
       });
-      // חבר Agent -> Add Button
+      
+      // חבר בין ה-agents
+      for (let i = 1; i < agents.length; i++) {
+        edges.push({
+          id: `e-agent-${i}-agent-${i + 1}`,
+          source: `agent-${i}`,
+          target: `agent-${i + 1}`,
+          animated: true,
+          style: { stroke: '#a855f7', strokeWidth: 2 },
+        });
+      }
+      
+      // חבר Agent האחרון -> Add Button
       edges.push({
-        id: 'e2-add',
-        source: '2',
+        id: `e-agent-${agents.length}-add`,
+        source: `agent-${agents.length}`,
         target: 'add-agent',
         animated: true,
         style: { stroke: '#ec4899', strokeWidth: 2 },
@@ -178,7 +213,7 @@ function WorkflowBuilder({ workflowId }: WorkflowBuilderProps) {
                 ? 'bg-purple-500/20 text-purple-400'
                 : 'bg-purple-100 text-purple-700 border border-purple-300'
             }`}>
-              🟣 {currentWorkflow?.node_count || 0} nodes
+              🟣 {currentWorkflow?.nodes || 0} nodes
             </span>
           </div>
         </div>

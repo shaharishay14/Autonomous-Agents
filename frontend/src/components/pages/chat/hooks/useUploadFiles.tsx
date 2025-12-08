@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { uploadFile } from '../requests';
 import type { UploadFileResponse } from '../types';
 import type { AxiosError } from 'axios';
@@ -25,10 +25,10 @@ export const useUploadFiles = (agentId: string | undefined) => {
       console.log('✅ הקבצים הועלו בהצלחה');
       queryClient.invalidateQueries({ queryKey: ['agent-files', agentId] });
       setSelectedFiles([]);
-      toast.success('הקבצים הועלו בהצלחה!');
+      toast.success('Files uploaded successfully!');
     },
     onError: (error) => {
-      const message = error.response?.data?.message || error.message || 'שגיאה בהעלאת הקבצים';
+      const message = error.response?.data?.message || error.message || 'Error uploading files';
       console.error('❌ שגיאה בהעלאת קבצים:', message);
       toast.error(message);
     },

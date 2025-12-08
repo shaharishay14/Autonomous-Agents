@@ -28,7 +28,7 @@ function Workflows() {
   if (isLoading) {
     return (
       <LayoutWorkflow isDarkMode={isDarkMode}>
-        <LoadingState message="טוען workflows..." />
+        <LoadingState message="Loading workflows..." />
       </LayoutWorkflow>
     );
   }
@@ -38,7 +38,7 @@ function Workflows() {
     return (
       <LayoutWorkflow isDarkMode={isDarkMode}>
         <ErrorState 
-          message={error?.message || 'שגיאה בטעינת workflows'}
+          message={error?.message || 'Error loading workflows'}
           onRetry={() => refetch()}
         />
       </LayoutWorkflow>

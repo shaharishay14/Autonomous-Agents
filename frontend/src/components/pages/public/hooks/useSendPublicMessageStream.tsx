@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 
 // פונקציה לקריאת cookie
@@ -198,7 +198,7 @@ export const useSendPublicMessageStream = (
           } else if (response.status >= 400 && response.status < 500 && response.status !== 429) {
             try {
               const contentType = response.headers.get('content-type');
-              let errorMessage = `שגיאה: ${response.status}`;
+              let errorMessage = `Error: ${response.status}`;
               
               if (contentType?.includes('application/json')) {
                 const errorData = await response.json();
@@ -215,10 +215,10 @@ export const useSendPublicMessageStream = (
               if (e instanceof Error) {
                 throw e;
               }
-              throw new Error(`שגיאה: ${response.status}`);
+              throw new Error(`Error: ${response.status}`);
             }
           } else {
-            throw new Error(`שגיאת שרת: ${response.status}`);
+            throw new Error(`Server error: ${response.status}`);
           }
         },
 
@@ -242,15 +242,15 @@ export const useSendPublicMessageStream = (
 
             case 'tool_call_start':
               const toolStartData = data as ToolCallStartData;
-              setStatus(`מריץ כלי: ${toolStartData.tool}...`);
+              setStatus(`Running tool: ${toolStartData.tool}...`);
               break;
 
             case 'tool_call_result':
               const toolResultData = data as ToolCallResultData;
               if (toolResultData.success) {
-                setStatus(`${toolResultData.tool} הושלם בהצלחה`);
+                setStatus(`${toolResultData.tool} completed successfully`);
               } else {
-                setStatus(`שגיאה ב-${toolResultData.tool}`);
+                setStatus(`Error in ${toolResultData.tool}`);
               }
               break;
 
@@ -317,7 +317,7 @@ export const useSendPublicMessageStream = (
             return;
           }
           
-          const errorMessage = error instanceof Error ? error.message : 'שגיאה בשליחת ההודעה';
+          const errorMessage = error instanceof Error ? error.message : 'Error sending message';
           toast.error(errorMessage);
           
           // עצירת ה-retry

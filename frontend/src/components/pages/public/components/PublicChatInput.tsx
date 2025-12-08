@@ -73,7 +73,7 @@ function PublicChatInput({
             <button
               onClick={handleHideSuggestions}
               className="absolute right-0 top-0 p-1.5 rounded-lg transition-all duration-200 hover:scale-110 hover:bg-white/[0.08] text-gray-400 hover:text-gray-300"
-              title="הסתר הצעות"
+              title="Hide suggestions"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -119,7 +119,7 @@ function PublicChatInput({
                   <button
                     onClick={() => handleRemoveFile(index)}
                     className="p-1 rounded-md transition-all duration-200 hover:scale-110 hover:bg-red-500/20 text-red-400"
-                    title="הסר קובץ"
+                    title="Remove file"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -144,7 +144,7 @@ function PublicChatInput({
               onClick={handleFileButtonClick}
               disabled={isSending}
               className="p-3 rounded-xl transition-all duration-200 hover:bg-white/[0.08] text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="צרף קבצים"
+              title="Attach files"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />

@@ -7,7 +7,7 @@ function PricingSection() {
     <section className="py-12 md:py-20 px-4">
       <div className="text-center mb-12 md:mb-16">
         <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold mb-3 md:mb-4 ${
-          isDarkMode ? 'text-white' : 'bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent'
+          isDarkMode ? 'text-white' : 'bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent pb-1'
         }`}>Pricing</h2>
         <p className={`text-base md:text-lg ${isDarkMode ? 'text-gray-400' : 'text-gray-700'}`}>
           Join now to get unlimited access before pricing starts.

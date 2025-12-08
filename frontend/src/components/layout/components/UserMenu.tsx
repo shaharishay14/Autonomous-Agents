@@ -28,8 +28,8 @@ export const UserMenu = ({
             <button
                 onClick={toggleUserMenu}
                 className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 border ${isDarkMode
-                        ? 'bg-gray-800/50 hover:bg-gray-700/50 text-white border-gray-700 hover:border-gray-600'
-                        : 'bg-white hover:bg-gray-50 text-gray-900 border-gray-300 hover:border-gray-400 shadow-sm'
+                        ? 'bg-gradient-to-r from-purple-900/30 via-gray-800/50 to-pink-900/30 hover:from-purple-800/40 hover:via-gray-700/60 hover:to-pink-800/40 text-white border-purple-500/30 hover:border-purple-400/50 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30'
+                        : 'bg-gradient-to-r from-purple-50 via-pink-50 to-purple-100 hover:from-purple-100 hover:via-pink-100 hover:to-purple-200 text-gray-900 border-purple-300 hover:border-purple-400 shadow-xl shadow-purple-300/50 hover:shadow-2xl hover:shadow-purple-400/60 ring-2 ring-purple-200/30 hover:ring-purple-300/50'
                     }`}
             >
                 <span className="w-2 h-2 rounded-full bg-green-500"></span>
@@ -38,11 +38,13 @@ export const UserMenu = ({
             </button>
 
             {isUserMenuOpen && (
-                <div className={`absolute right-0 mt-2 w-72 rounded-xl shadow-2xl border overflow-hidden ${isDarkMode
-                        ? 'bg-gray-900 border-gray-700'
-                        : 'bg-white border-gray-200'
+                <div className={`absolute right-0 mt-2 w-72 rounded-xl shadow-2xl border overflow-hidden backdrop-blur-md ${isDarkMode
+                        ? 'bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 border-purple-500/30 shadow-purple-500/30'
+                        : 'bg-gradient-to-br from-white via-purple-50/50 to-pink-50/30 border-purple-300 shadow-2xl shadow-purple-300/50 ring-2 ring-purple-200/40'
                     }`}>
-                    <div className={`px-4 py-3 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'
+                    <div className={`px-4 py-3 border-b ${isDarkMode 
+                        ? 'border-purple-500/20' 
+                        : 'border-purple-200/50'
                         }`}>
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
@@ -63,9 +65,9 @@ export const UserMenu = ({
                         <Link
                             to="/settings"
                             onClick={() => setIsUserMenuOpen(false)}
-                            className={`px-4 py-2 flex items-center gap-3 transition-colors ${isDarkMode
-                                    ? 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                            className={`px-4 py-2 flex items-center gap-3 transition-all duration-200 rounded-lg mx-2 ${isDarkMode
+                                    ? 'text-gray-300 hover:bg-gradient-to-r hover:from-purple-500/20 hover:via-pink-500/15 hover:to-purple-500/20 hover:text-white'
+                                    : 'text-gray-700 hover:bg-gradient-to-r hover:from-purple-100 hover:via-pink-50 hover:to-purple-100 hover:text-purple-900'
                                 }`}
                         >
                             <Settings className="w-4 h-4" />
@@ -77,9 +79,9 @@ export const UserMenu = ({
                                 setIsUserMenuOpen(false);
                                 logout();
                             }}
-                            className={`w-full px-4 py-2 flex items-center gap-3 transition-colors ${isDarkMode
-                                    ? 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                            className={`w-full px-4 py-2 flex items-center gap-3 transition-all duration-200 rounded-lg mx-2 ${isDarkMode
+                                    ? 'text-gray-300 hover:bg-gradient-to-r hover:from-purple-500/20 hover:via-pink-500/15 hover:to-purple-500/20 hover:text-white'
+                                    : 'text-gray-700 hover:bg-gradient-to-r hover:from-purple-100 hover:via-pink-50 hover:to-purple-100 hover:text-purple-900'
                                 }`}
                         >
                             <LogOut className="w-4 h-4" />

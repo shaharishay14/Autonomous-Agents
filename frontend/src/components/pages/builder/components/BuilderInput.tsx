@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useDarkModeStore from '../../../../../store/darkmode.store';
+import { useUserStore } from '../../../../../store/user.store';
 import { useCreateAgent } from '../hooks';
 import { FadeIn, ScaleIn } from '../../../shared/animation';
 import { ManualAgentModal } from './modal';
@@ -15,6 +17,8 @@ function BuilderInput({ prompt, setPrompt, templateId }: BuilderInputProps) {
   const [mode, setMode] = useState<'yolo' | 'manual'>('yolo');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { isDarkMode } = useDarkModeStore();
+  const { isAuthenticated } = useUserStore();
+  const navigate = useNavigate();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { handleCreate, createAgent, isCreating } = useCreateAgent();
 
@@ -37,6 +41,12 @@ function BuilderInput({ prompt, setPrompt, templateId }: BuilderInputProps) {
   const handleCreateClick = () => {
     if (!prompt.trim()) return;
     
+    // בדיקה אם המשתמש מאומת
+    if (!isAuthenticated) {
+      navigate('/auth/signin');
+      return;
+    }
+    
     if (mode === 'manual') {
       setIsModalOpen(true);
     } else {
@@ -48,6 +58,13 @@ function BuilderInput({ prompt, setPrompt, templateId }: BuilderInputProps) {
   };
 
   const handleManualSubmit = (data: ManualAgentData) => {
+    // בדיקה אם המשתמש מאומת
+    if (!isAuthenticated) {
+      navigate('/auth/signin');
+      setIsModalOpen(false);
+      return;
+    }
+    
     createAgent({
       prompt: data.prompt,
     });

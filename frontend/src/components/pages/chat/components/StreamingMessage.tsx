@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { isHebrewText } from '../utils';
+import { isHebrewText, formatAvatarUrl } from '../utils';
+import type { Agent } from '../types';
 
 interface StreamingMessageProps {
   isDarkMode: boolean;
   content: string;
+  agentData?: Agent;
 }
 
-export const StreamingMessage = ({ isDarkMode, content }: StreamingMessageProps) => {
+export const StreamingMessage = ({ isDarkMode, content, agentData }: StreamingMessageProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const isHebrew = isHebrewText(content);
+  const avatarUrl = formatAvatarUrl(agentData?.avatar_base64);
 
   const handleCopy = async () => {
     try {
@@ -31,12 +34,20 @@ export const StreamingMessage = ({ isDarkMode, content }: StreamingMessageProps)
     >
       <div className="flex gap-3 max-w-full md:max-w-[80%]">
         {/* Avatar */}
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden ${
           isDarkMode
             ? 'bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30'
             : 'bg-gradient-to-br from-purple-400 to-pink-500 border border-purple-300'
         }`}>
-          <span className="text-sm">🤖</span>
+          {avatarUrl ? (
+            <img 
+              src={avatarUrl}
+              alt={agentData?.name || 'Agent'}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="text-sm">🤖</span>
+          )}
         </div>
 
         {/* Message Content */}
@@ -54,7 +65,7 @@ export const StreamingMessage = ({ isDarkMode, content }: StreamingMessageProps)
             }`}
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {content}
+              {content.replace(/\\n/g, '\n')}
             </ReactMarkdown>
             <span className="inline-block w-1 h-4 bg-purple-500 animate-pulse ml-0.5 align-middle"></span>
           </div>

@@ -34,9 +34,10 @@ function Nav() {
 
     return (
         <>
-            <nav className={`relative z-50 transition-colors duration-300 border-b backdrop-blur-md ${isDarkMode
-                    ? 'bg-[#0a0a0a]/80 border-gray-800'
-                    : 'bg-white/70 border-purple-200 shadow-lg'
+            <nav className={`relative z-50 transition-colors duration-300 backdrop-blur-md border-b ${
+                isDarkMode
+                    ? 'bg-[#0a0a0a]/80 border-white/[0.08]'
+                    : 'bg-gradient-to-r from-purple-50 via-pink-50 to-purple-100 border-purple-300 shadow-md shadow-purple-200/30'
                 }`}>
                 <div className="max-w-7xl mx-auto px-4 md:px-8">
                     <div className="flex items-center justify-between h-16">

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { connectTelegramBot } from '../requests';
 import type { ConnectTelegramBotRequest, TelegramBotResponse } from '../types';
 
@@ -11,7 +11,7 @@ export const useConnectTelegramBot = (agentId: string) => {
       return await connectTelegramBot(agentId, data);
     },
     onSuccess: () => {
-      toast.success('הבוט חובר בהצלחה לטלגרם!');
+      toast.success('Bot connected to Telegram successfully!');
       // עדכון cache אם צריך
       queryClient.invalidateQueries({ queryKey: ['agent', agentId] });
       queryClient.invalidateQueries({ queryKey: ['agent-telegram', agentId] });
@@ -19,7 +19,7 @@ export const useConnectTelegramBot = (agentId: string) => {
     onError: (error: any) => {
       const errorMessage = error.response?.data?.error || 
                           error.response?.data?.detail || 
-                          'שגיאה בחיבור הבוט';
+                          'Error connecting bot';
       toast.error(errorMessage);
     },
   });

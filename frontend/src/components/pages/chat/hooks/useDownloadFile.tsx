@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { downloadFile as downloadFileRequest } from '../requests';
 import type { AxiosError } from 'axios';
 
@@ -19,10 +19,10 @@ export const useDownloadFile = () => {
     },
     onSuccess: () => {
       console.log('✅ הקובץ הורד בהצלחה');
-      toast.success('הקובץ הורד בהצלחה!');
+      toast.success('File downloaded successfully!');
     },
     onError: (error) => {
-      const message = error.response?.data?.message || error.message || 'שגיאה בהורדת הקובץ';
+      const message = error.response?.data?.message || error.message || 'Error downloading file';
       console.error('❌ שגיאה בהורדת קובץ:', message);
       toast.error(message);
     },

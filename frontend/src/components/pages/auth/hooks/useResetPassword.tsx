@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
-import { toast } from 'react-toastify'
+import { toast } from 'sonner'
 import { resetPasswordSchema } from '../schema'
 import { resetPassword, type ResetPasswordResponse } from '../requests'
 import type { ResetPasswordFormData } from '../types'
@@ -47,7 +47,7 @@ export const useResetPassword = (uid: string, token: string) => {
       }, 2000)
     },
     onError: (error) => {
-      const message = error.response?.data?.password?.[0] || error.response?.data?.detail || error.response?.data?.message || error.message || 'אירעה שגיאה באיפוס הסיסמה. אנא נסה שנית.'
+      const message = error.response?.data?.password?.[0] || error.response?.data?.detail || error.response?.data?.message || error.message || 'An error occurred while resetting the password. Please try again.'
       console.error('Reset password error:', message)
       toast.error(message)
     },

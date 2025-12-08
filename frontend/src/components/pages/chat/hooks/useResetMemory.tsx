@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { resetAgentMemory } from '../requests';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import type { AxiosError } from 'axios';
 
 interface ErrorResponse {

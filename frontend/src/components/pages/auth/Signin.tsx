@@ -1,4 +1,4 @@
-import { LogIn } from 'lucide-react'
+import { LogIn, Sparkles } from 'lucide-react'
 import { 
   AuthLogo, 
   AuthHeader, 
@@ -30,6 +30,28 @@ function Signin() {
           title="Welcome back"
           subtitle="Sign in to continue building amazing AI agents"
         />
+
+        {/* Continue creating your agent after signing in */}
+        <div className={`mb-6 rounded-lg p-4 border-2 ${
+          isDarkMode 
+            ? 'bg-gradient-to-r from-purple-900/30 via-pink-900/30 to-purple-900/30 border-purple-700/50' 
+            : 'bg-gradient-to-r from-purple-100 via-pink-100 to-purple-100 border-purple-300 shadow-md'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${
+              isDarkMode ? 'bg-purple-800/50' : 'bg-purple-200'
+            }`}>
+              <Sparkles className={`w-5 h-5 ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-600'
+              }`} />
+            </div>
+            <p className={`text-sm font-medium ${
+              isDarkMode ? 'text-purple-200' : 'text-purple-800'
+            }`}>
+              Continue creating your agent after signing in
+            </p>
+          </div>
+        </div>
 
         <div className={`border rounded-xl p-6 md:p-8 ${
           isDarkMode ? 'bg-[#1a1a1a] border-gray-800' : 'bg-white border-purple-200 shadow-lg'

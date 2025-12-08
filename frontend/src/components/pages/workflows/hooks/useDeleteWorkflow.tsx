@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { deleteWorkflow } from '../requests';
 
 export const useDeleteWorkflow = () => {
@@ -13,7 +13,7 @@ export const useDeleteWorkflow = () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
     },
     onError: (error) => {
-      toast.error('שגיאה במחיקת Workflow');
+      toast.error('Error deleting workflow');
       console.error('Error deleting workflow:', error);
     },
   });

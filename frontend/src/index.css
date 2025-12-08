@@ -554,3 +554,60 @@ body {
 .animate-gradient-x {
   animation: gradient-x 3s ease infinite;
 }
+
+/* Sonner Toast Styles */
+.sonner-toast {
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+.sonner-success {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05)) !important;
+  border-color: rgba(34, 197, 94, 0.3) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.sonner-error {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05)) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.sonner-info {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05)) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.sonner-warning {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05)) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .sonner-toast {
+  background: hsl(var(--card)) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark .sonner-success {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.08)) !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+}
+
+.dark .sonner-error {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.08)) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+.dark .sonner-info {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08)) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+.dark .sonner-warning {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.08)) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}

@@ -1,4 +1,4 @@
-import { formatAvatarUrl } from '../../chat/utils';
+// import { formatAvatarUrl } from '../../chat/utils';
 
 interface Agent {
   name: string;
@@ -10,19 +10,19 @@ interface PublicChatWelcomeProps {
 }
 
 function PublicChatWelcome({ agent }: PublicChatWelcomeProps) {
-  const avatarUrl = formatAvatarUrl(agent.avatar_base64);
+  // const avatarUrl = formatAvatarUrl(agent.avatar_base64);
   return (
     <div className="text-center py-12">
       <img 
-        src={avatarUrl || "/assets/agent.png"} 
+        src={"/assets/agent.png"} 
         alt={agent?.name || "Agent"} 
-        className="w-16 h-16 mx-auto mb-4 object-cover"
+        className="w-16 h-16 mx-auto mb-4 object-contain"
       />
       <h2 className="text-2xl font-bold mb-2 text-white">
         {agent?.name || 'Agent'}
       </h2>
       <p className="mb-8 text-gray-400">
-        התחל לשוחח עם האייג'נט שלך
+        Start chatting with your agent
       </p>
     </div>
   );

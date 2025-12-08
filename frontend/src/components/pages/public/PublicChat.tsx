@@ -52,7 +52,7 @@ function PublicChat() {
     return (
       <LayoutPublicChat>
         <div className="flex-1 flex items-center justify-center">
-          <ErrorState message="שגיאה בטעינת האייג'נט" />
+          <ErrorState message="Error loading agent" />
         </div>
       </LayoutPublicChat>
     );

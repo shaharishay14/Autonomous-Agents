@@ -1,7 +1,7 @@
 import { useGoogleLogin } from '@react-oauth/google'
 import { useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'react-toastify'
+import { toast } from 'sonner'
 import { useUserStore } from '../../../../../store/user.store'
 import { googleAuth, githubAuth, type ProviderAuthResponse } from '../requests'
 import type { AxiosError } from 'axios'
@@ -27,7 +27,6 @@ export const useProviders = () => {
       
       // ה-tokens נשמרים אוטומטית ב-cookies
       console.log('Google login successful:', data.user)
-      toast.success(`Welcome, ${data.user.username}!`)
       
       // ניווט לדף הbuilder
       navigate('/builder')
@@ -52,7 +51,6 @@ export const useProviders = () => {
       
       // ה-tokens נשמרים אוטומטית ב-cookies
       console.log('GitHub login successful:', data.user)
-      toast.success(`Welcome, ${data.user.username}!`)
       
       // ניווט לדף הbuilder
       navigate('/builder')
