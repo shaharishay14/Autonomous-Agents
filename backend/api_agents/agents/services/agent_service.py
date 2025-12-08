@@ -2700,7 +2700,7 @@ RESPONSE FORMAT:
             initiate_params = {
                 "auth_config_id": auth_config_id,
                 "user_id": f"user_{self.user.id}",
-                "allow_multiple": False,  # Enforce one connection per tool per user
+                "allow_multiple": True,  # Allow multiple connections per tool per user
             }
 
             # Add callback URL if provided

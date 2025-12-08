@@ -422,27 +422,6 @@ class ComposioConnectionViewSet(viewsets.ModelViewSet):
                     tool_name__in=connected_tool_names
                 ).update(is_active=False)
 
-                # Cleanup: Hard delete soft-deleted connections older than 24 hours
-                # This keeps the database clean while preventing immediate recreation
-                old_deleted_threshold = timezone.now() - timezone.timedelta(hours=24)
-                deleted_count = ComposioConnection.objects.filter(
-                    user=request.user,
-                    deleted_at__isnull=False,
-                    deleted_at__lt=old_deleted_threshold
-                ).delete()[0]
-                if deleted_count > 0:
-                    print(f"🗑️  Cleaned up {deleted_count} old soft-deleted connection(s)")
-
-                # Cleanup: Delete inactive connections (is_active=False)
-                # These are connections that were marked inactive because they're no longer in Composio
-                inactive_deleted = ComposioConnection.objects.filter(
-                    user=request.user,
-                    is_active=False,
-                    deleted_at__isnull=True  # Only clean up connections that weren't manually deleted
-                ).delete()[0]
-                if inactive_deleted > 0:
-                    print(f"🗑️  Cleaned up {inactive_deleted} inactive connection(s)")
-
                 # Log connections in Composio that aren't in database (for debugging)
                 # DO NOT delete - ghost cleanup in create() handles cleanup when needed
                 print(f"🔍 Checking Composio connections sync status...")
