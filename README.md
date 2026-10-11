@@ -1,4 +1,4 @@
-# KGen21 — AI Agent Creator Platform
+# AI Agent Creator Platform
 
 **Build, deploy, and manage AI agents with 30+ tool integrations.**
 
@@ -9,9 +9,9 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ed.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[Live app](http://www.kgen21.com/)
+[Live app](http://www..com/)
 
-KGen21 lets users create AI agents in plain language (or from templates), connect them to tools like Gmail, Slack, and GitHub, chat with them in real time, and automate them with scheduled or event-based triggers.
+This system lets users create AI agents in plain language (or from templates), connect them to tools like Gmail, Slack, and GitHub, chat with them in real time, and automate them with scheduled or event-based triggers.
 
 ---
 
