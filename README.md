@@ -142,7 +142,7 @@ The app is deployed to AWS EC2 with Docker Compose behind Nginx.
 
 1. Provision an EC2 instance with Docker installed and ports 80/443 open.
 2. Create `backend/.env` with production values (`DEBUG=False`, real `ALLOWED_HOSTS`, `DATABASE_URL`).
-3. Run `./deploy-to-ec2.sh` (after setting your own server host and SSH key in the script). It builds the frontend, uploads the bundle, builds the containers, runs migrations, collects static files, and runs health checks.
+3. Run `./ec2-management.sh` (after setting your own server host and SSH key in the script). It builds the frontend, uploads the bundle, builds the containers, runs migrations, collects static files, and runs health checks.
 4. Add HTTPS with Certbot: `sudo certbot --nginx -d yourdomain.com`.
 
 ---
@@ -183,7 +183,7 @@ Main resources:
 │       └── lib/             # API client and utils
 ├── nginx/conf.d/            # Reverse proxy config
 ├── docker-compose.yml
-└── deploy-to-ec2.sh
+└── ec2-management.sh
 ```
 
 ---
