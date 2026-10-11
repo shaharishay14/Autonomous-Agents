@@ -3,8 +3,8 @@
 # KGen21 EC2 Container Management Commands
 # Usage: Run these commands via SSH on the EC2 instance
 
-EC2_HOST="ubuntu@13.62.63.125"
-PEM_FILE="~/Downloads/kgen.pem"
+EC2_HOST=YOUR_SERVER_IP
+PEM_FILE=YOUR_KEY_PATH
 
 # Color codes for output
 GREEN='\033[0;32m'
